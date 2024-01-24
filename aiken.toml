@@ -1,0 +1,7 @@
+name = "aadafinance/aada_finance_v2"
+version = "1.0.0"
+licences = ["Apache-2.0"]
+description = "Aada Finance - Decentralized Lending"
+dependencies = [
+  { name = "aiken-lang/stdlib", version = "1.5.0", source = "github" },
+]

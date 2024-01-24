@@ -1,0 +1,25 @@
+{
+  "imports": {
+    "~/": "./src/",
+    "./": "./",
+    "lucid": "https://deno.land/x/lucid@0.10.7/mod.ts",
+    "lucid/": "https://deno.land/x/lucid@0.10.7/",
+    "lenfi": "./plutus.ts",
+    "src/": "./src/",
+    "BigNumber": "https://deno.land/x/BigNumber@1.0.0/mod.ts"
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": false,
+    "singleQuote": false,
+    "proseWrap": "never",
+    "include": ["./src", "./tests", "./deno.json", "./plutus.ts"]
+  },
+  "tasks": {
+    "build": "aiken build -k && deno run -A https://deno.land/x/lucid@0.10.6/blueprint.ts && deno fmt",
+    "run": "deno run -A ./src/main.ts",
+    "test": "deno test -A ./tests/"
+  }
+}

@@ -1,0 +1,97 @@
+[
+  {
+    "validatorName": "collateral",
+    "txHash": "acda77eae525f83ae207ea0ce41df028043177df1f076e767f5ed52a2d379312",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "borrowerNftPolicy",
+    "txHash": "66a42ec0773bb30bd144ba3fd104d6944a7f467eb2e475b4794cfbc4835f7db2",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "poolValidator",
+    "txHash": "60d1b838dbcd9105531c8492dbdb25fd7ecae82ca0badc3dc2db7f8c6f55ef4f",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "lpTokenPolicy",
+    "txHash": "40e5972a57fdb180e03d52cc47ebb373cd292ad03c67f53478f35a6a811353e9",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "platformDetailsNftPolicy",
+    "txHash": "490e30f47c527b15e7a5a4656947fa044507cd8e48cb5b946ea15ca8944af832",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "collateralValidator",
+    "txHash": "3e8c5ef6979f4b8ae8fa82b58acf786b765645d8ef273fcd247d9db62b806eda",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "oracleNftPolicy",
+    "txHash": "c8f6247ce79d5e85b1f556c34f0e795a3bb998493f4377a0a2dc33f99fb8833f",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "delegatorNftPolicy",
+    "txHash": "b6fc5918a467c9e58294fadd939c2e9186a37867ca7557b896df8d3e21beb81e",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "poolNftPolicy",
+    "txHash": "97f26f563716bf476f48dada92340f9e4f2c46d558147175dd129bfc69561127",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderValidator",
+    "txHash": "a093a549d1d7efb40dbcaa3b05517d58f6e30eb94ed100a667d0d8dcf3f15dc9",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "oracleValidator",
+    "txHash": "83ce8ad5e660c91808406ce649ec5f4e03cd3fed88a4238f03e22817136f1438",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "liquidationValidator",
+    "txHash": "6dbb83e8c1a5dff501811457fcc0c73c75dd9247f0b55d807d50f9a1e4e3428c",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderContractDeposit",
+    "txHash": "263ad9a8e1cbdc0b409e9a1d072223e481e039f2fde07bd5d012870f6a87cef4",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderContractLiquidate",
+    "txHash": "84a5aa010fdfe8ba05454d674593226447ad0ec9e06d5ca89460fea0328984c6",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderContractRepay",
+    "txHash": "164684c50bff4bb3e155dee3730784e96c1da5b041fc30041de748789363557d",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderContractWithdraw",
+    "txHash": "45d690dc368d4334203d993279bbfb33b45b151dc1fbe0bebd632a1654084128",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "orderContractBorrow",
+    "txHash": "af134029f34cb8450d3ff298258eb753d27e3b0f007fc536d8468e80d11f522f",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "collateralValidatorMint",
+    "txHash": "3a0b9fe4c88dd90eaf33a6af9a72b89d267c89ae17eb391cddaa88f0ef19fff9",
+    "outputIndex": 0
+  },
+  {
+    "validatorName": "poolConfigNftPolicy",
+    "txHash": "c65ada5a6fb459a7687c755611c5e8c26f6845380b8dfc16da447d6b7f85ca83",
+    "outputIndex": 0
+  }
+]
