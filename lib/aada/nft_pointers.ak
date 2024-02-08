@@ -1,7 +1,6 @@
 //// NFT Pointers
 //// This module is for upgradable contracts. Already public.
 
-use aiken/cbor
 use aiken/dict.{Dict}
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/list
@@ -36,9 +35,6 @@ pub fn nft_validator(
   withdrawals: Dict<StakeCredential, Int>,
   extra_signatories: List<Hash<Blake2b_224, VerificationKey>>,
 ) -> Bool {
-  trace @"this is nft validator"
-  trace cbor.diagnostic(extra_signatories)
-  trace cbor.diagnostic(reference_inputs)
   when
     reference_inputs
       |> list.find(

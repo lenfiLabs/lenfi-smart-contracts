@@ -294,7 +294,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
       transaction: Transaction { outputs, mint, redeemers, .. },
       purpose,
     } = ctx
-    trace @"This is pool validator"
+
     {
       expect Mint(own_script) = purpose
       let pool_control_credential = ScriptCredential(own_script)

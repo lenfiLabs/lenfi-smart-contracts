@@ -1,5 +1,4 @@
 use aada/types/pool
-use aiken/cbor
 use aiken/dict
 use aiken/list
 use aiken/transaction.{InlineDatum, Mint, OutputReference, ScriptContext}
@@ -91,7 +90,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
         }
       }
       CreatePool { produced_output } -> {
-        trace @"This is LP token"
+   
         {
           expect Some(pool_output) =
             ctx.transaction.outputs |> list.at(produced_output)
@@ -124,9 +123,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
           let depositing_gt_0 = depositing_tokens_count_actual > 0
           let depositing_at_script =
             depositing_tokens_count_actual == output_datum.balance
-          trace @"actuyal count"
-          trace cbor.diagnostic(depositing_tokens_count_actual)
-          trace cbor.diagnostic(output_datum.balance)
+
           {
             let minted_lp_match_deposit =
               depositing_tokens_count_actual == lp_tokens_minted

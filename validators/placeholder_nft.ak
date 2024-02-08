@@ -9,15 +9,10 @@ use aiken/transaction.{Mint, ScriptContext, Transaction}
 // TODO: Need to foldl over these mints and burns as well.
 validator(_nonce: Int) {
   fn placeholder_nft(r: NFTRedeemerElement<Void>, ctx: ScriptContext) {
-    trace @"this is placegholder"
-    {
-      let ScriptContext {
-        transaction: Transaction { inputs, mint, .. },
-        purpose,
-      } = ctx
-      let NFTRedeemerElement { action, .. } = r
-      expect Mint(own_purpose) = purpose
-      check_uniqueness(action, inputs, mint, own_purpose)
-    }
+    let ScriptContext { transaction: Transaction { inputs, mint, .. }, purpose } =
+      ctx
+    let NFTRedeemerElement { action, .. } = r
+    expect Mint(own_purpose) = purpose
+    check_uniqueness(action, inputs, mint, own_purpose)
   }
 }

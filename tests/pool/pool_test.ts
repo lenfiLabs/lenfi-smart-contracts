@@ -985,7 +985,7 @@ function testTokenScenario(
             ).then(quickSubmitBuilder(emulator));
           } catch (e) {
             if (loanTokenPolicy === "") {
-              expect(e).toContain("Validator returned false");
+              expect(e).toContain("collateral_check ? False");
             } else {
               expect(e).toContain("oracle is expired");
             }
@@ -1009,7 +1009,7 @@ function testTokenScenario(
             ).then(quickSubmitBuilder(emulator));
           } catch (e) {
             if (collateralTokenPolicy === "") {
-              expect(e).toContain("Validator returned false");
+              expect(e).toContain("collateral_check ? False");
             } else {
               expect(e).toContain("oracle is expired");
             }
