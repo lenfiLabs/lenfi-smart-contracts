@@ -1,21 +1,21 @@
 {
   "type": "module",
   "module": "index.ts",
-  "name": "butane-backend",
+  "name": "lenfi-smart-contracts",
   "version": "0.1.0",
-  "description": "Validators for Butane.",
-  "license": "Business Source License 1.1",
+  "description": "Validators for Lenfi.",
+  "license": "",
   "repository": {
     "type": "git",
-    "url": "git+github.com:mcomp-tech/improved-spork.git"
+    "url": "git+github.com:/lenfiLabs/lenfi-smart-contracts.git"
   },
   "scripts": {
     "build": "cd contracts && aiken build  && bun blueprint.ts && prettier -w ./plutus.ts && mv plutus.ts .. && cd .. && bun run script_size_dump.ts",
-    "build:debug": "aiken build -k && bun blueprint.ts && prettier -w ./plutus.ts",
+    "build:debug": "aiken build -f user-defined -t verbose && bun blueprint.ts && prettier -w ./plutus.ts",
     "build:rust": "cargo build --release",
     "bench": "bun run ./src/bench.ts",
     "start": "bun ./src/main.ts",
-    "start:rust": "env RUST_LOG=error ./target/release/spork",
+    "start:rust": "env RUST_LOG=error ./target/release/lenfi",
     "dev": "bun ./src/main.ts",
     "dev:rust": "cargo watch -x \"run\"",
     "fmt": "pnpm exec prettier --write .",
@@ -32,7 +32,7 @@
     "hono": "^3.7.2",
     "lucid-cardano": "^0.10.7",
     "noble-ed25519": "^1.2.6",
-    "prettier": "^3.0.3",
+    "prettier": "^3.2.5",
     "translucent-cardano": "^0.0.6",
     "typescript-formatter": "^7.2.2",
     "zod": "^3.22.2"

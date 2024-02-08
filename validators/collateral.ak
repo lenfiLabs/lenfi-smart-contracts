@@ -7,7 +7,6 @@ use aada/types/leftovers.{LeftoversDatum}
 use aada/types/oracle.{Aggregated, Pooled}
 use aada/types/pool
 use aada/utils
-use aiken/cbor
 use aiken/dict
 use aiken/interval.{Finite}
 use aiken/list
@@ -352,9 +351,6 @@ validator(collateral_script_params: CollateralParams) {
               let quantity_check =
                 quantity_of(value, policy_id, asset_name) >= borrower_compensation
 
-              trace @"Values are "
-              trace cbor.diagnostic(borrower_compensation)
-              trace cbor.diagnostic(quantity_of(value, policy_id, asset_name))
 
               {
                 let datum_check = raw_datum == expected_datum
@@ -501,7 +497,7 @@ validator(collateral_script_params: CollateralParams) {
       purpose,
     } = ctx
     let mint_value = from_minted_value(mint)
-    trace @"This is collateral validator"
+
     {
       expect Mint(own_address) = purpose
       let own_scred = ScriptCredential(own_address)
@@ -572,7 +568,7 @@ validator(collateral_script_params: CollateralParams) {
               config_ref,
               ..
             }): WrappedRedeemer<pool.Redeemer> = raw_pool_redeemer
-            trace @"got redeemer"
+          
             {
               expect Some(Input {
                 output: Output { datum: InlineDatum(pool_config_datum), .. },
@@ -582,10 +578,10 @@ validator(collateral_script_params: CollateralParams) {
                   |> list.find(
                        fn(inp) -> Bool { inp.output_reference == config_ref },
                      )
-              trace @"will get config"
+        
               {
                 expect pool_config: pool.Config = pool_config_datum
-                trace @"will go with datum"
+             
                 {
                   expect pool.Datum {
                     params: pool.Constants {
@@ -600,7 +596,7 @@ validator(collateral_script_params: CollateralParams) {
                     balance: pool_balance,
                     ..
                   }: pool.Datum = raw_pool_datum
-                  trace @"here"
+               
 
                   // To validate Oracle inputs
                   {
@@ -756,7 +752,7 @@ validator(collateral_script_params: CollateralParams) {
           },
         )
 
-      trace @"will get to burns"
+     
       {
         let burns_are_valid =
           list.foldl(
@@ -768,7 +764,7 @@ validator(collateral_script_params: CollateralParams) {
             ) -> Option<List<(ByteArray, Int)>> {
               let BurnNFTElem(burn_coll_name) = collateral_burn
               expect Some(curr_mints) = curr_mints_opt
-              trace @"will prune"
+       
               {
                 let pruned_mints =
                   curr_mints
@@ -778,8 +774,7 @@ validator(collateral_script_params: CollateralParams) {
                            burn_coll_name != burn_tn
                          },
                        )
-                trace @"will expect smth"
-                trace cbor.diagnostic(mint)
+     
                 {
                   expect [(_, -1)] = pruned_mints |> list.take(1)
                   list.tail(pruned_mints)
