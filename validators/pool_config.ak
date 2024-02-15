@@ -15,7 +15,7 @@ type ConfigRedeemer {
   fee_collector_output_index: pool.OutputIndex,
 }
 
-validator(gov_nft: AssetClass, _default_config: pool.Config) {
+validator(gov_nft: AssetClass) {
   fn spend(datum: pool.Config, redeemer: ConfigRedeemer, ctx: ScriptContext) {
     let AssetClass { policy_id, asset_name } = gov_nft
     let ScriptContext {
