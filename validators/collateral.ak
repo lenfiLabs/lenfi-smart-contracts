@@ -112,6 +112,7 @@ validator(collateral_script_params: CollateralParams) {
       loan_fee_details: platform_fee_details,
       liquidation_threshold,
       merge_action_fee,
+      min_liquidation_fee,
       ..
     }: pool.Config = datum.pool_config
     let platform_fee_rate = get_platform_fee(datum, platform_fee_details)
@@ -125,6 +126,7 @@ validator(collateral_script_params: CollateralParams) {
         datum.deposit_time,
         upper_bound,
       )
+
     let interest_check =
       (
         rational.from_int(interest_amount)
@@ -272,16 +274,23 @@ validator(collateral_script_params: CollateralParams) {
 
           let liquidation_address =
             Address(ScriptCredential(liquidations_pkh), own_stake_key)
-          // Borrower should receive 97.5% of collateral-loan value
-          expect Some(liqudation_fee) =
+
+          expect Some(liquidation_fee) =
             rational.new(
               ( collateral_value - value_to_repay ) * platform_fee_details.liquidation_fee,
               1_000_000,
             )
 
+          let liquidation_fee =
+            if ( liquidation_fee |> rational.truncate ) < min_liquidation_fee {
+              rational.from_int(min_liquidation_fee)
+            } else {
+              liquidation_fee
+            }
+
           let borrower_compensation_in_ada =
             rational.from_int(collateral_value - value_to_repay)
-              |> rational.sub(liqudation_fee)
+              |> rational.sub(liquidation_fee)
 
           let borrower_compensation =
             if datum.collateral_cs.policy_id == ada_cs.policy_id {
@@ -351,16 +360,13 @@ validator(collateral_script_params: CollateralParams) {
               let quantity_check =
                 quantity_of(value, policy_id, asset_name) >= borrower_compensation
 
-
-              {
-                let datum_check = raw_datum == expected_datum
-                let address_check = address == liquidation_address
-                and {
-                  quantity_check?,
-                  datum_check?,
-                  dust_attack_check?,
-                  address_check?,
-                }
+              let datum_check = raw_datum == expected_datum
+              let address_check = address == liquidation_address
+              and {
+                quantity_check?,
+                datum_check?,
+                dust_attack_check?,
+                address_check?,
               }
             } else {
               True
@@ -498,297 +504,264 @@ validator(collateral_script_params: CollateralParams) {
     } = ctx
     let mint_value = from_minted_value(mint)
 
-    {
-      expect Mint(own_address) = purpose
-      let own_scred = ScriptCredential(own_address)
-      let own_mints = tokens(mint_value, own_address)
+    expect Mint(own_address) = purpose
+    let own_scred = ScriptCredential(own_address)
+    let own_mints = tokens(mint_value, own_address)
 
-      let CollateralNFTRedeemerLists { mints, burns } = redeemer
-      let num_minted_check =
-        dict.size(own_mints) == list.length(mints) + list.length(burns)
+    let CollateralNFTRedeemerLists { mints, burns } = redeemer
+    let num_minted_check =
+      dict.size(own_mints) == list.length(mints) + list.length(burns)
 
-      expect Finite(lower_bound) = validity_range.lower_bound.bound_type
-      expect Finite(upper_bound) = validity_range.upper_bound.bound_type
-      let valid_validity_range = upper_bound - lower_bound <= 3600000
+    expect Finite(lower_bound) = validity_range.lower_bound.bound_type
+    expect Finite(upper_bound) = validity_range.upper_bound.bound_type
+    let valid_validity_range = upper_bound - lower_bound <= 3600000
 
-      let mints_are_valid =
-        list.foldl(
-          mints,
-          Some(inputs),
-          fn(collateral_mint: MintNFTElem, curr_inputs_opt: Option<List<Input>>) -> Option<
-            List<Input>,
-          > {
-            expect Some(curr_inputs) = curr_inputs_opt
-            let MintNFTElem(pool_utxo, collateral_output_idx) = collateral_mint
-            let expected_token_name = id_from_utxo(pool_utxo)
-            let token_minted_amount =
-              quantity_of(mint_value, own_address, expected_token_name)
-            let minted_amount_check = token_minted_amount == 1
-            expect Some(Output {
-              datum: InlineDatum(actual_datum_output),
-              value: collateral_value,
-              address: collateral_address,
-              ..
-            }) =
-              outputs
-                |> list.at(collateral_output_idx)
-            let collateral_at_script_check =
-              collateral_address.payment_credential == own_scred
-            expect CollateralDatum { pool_nft_name, tag, .. }: CollateralDatum =
-              actual_datum_output
-            let pruned_inputs =
-              curr_inputs
-                |> list.drop_while(fn(in) { in.output_reference != pool_utxo })
+    let mints_are_valid =
+      list.foldl(
+        mints,
+        Some(inputs),
+        fn(collateral_mint: MintNFTElem, curr_inputs_opt: Option<List<Input>>) -> Option<
+          List<Input>,
+        > {
+          expect Some(curr_inputs) = curr_inputs_opt
+          let MintNFTElem(pool_utxo, collateral_output_idx) = collateral_mint
+          let expected_token_name = id_from_utxo(pool_utxo)
+          let token_minted_amount =
+            quantity_of(mint_value, own_address, expected_token_name)
+          let minted_amount_check = token_minted_amount == 1
+          expect Some(Output {
+            datum: InlineDatum(actual_datum_output),
+            value: collateral_value,
+            address: collateral_address,
+            ..
+          }) =
+            outputs
+              |> list.at(collateral_output_idx)
+          let collateral_at_script_check =
+            collateral_address.payment_credential == own_scred
+          expect CollateralDatum { pool_nft_name, tag, .. }: CollateralDatum =
+            actual_datum_output
+          let pruned_inputs =
+            curr_inputs
+              |> list.drop_while(fn(in) { in.output_reference != pool_utxo })
 
-            expect [
-              Input(
-                _,
-                Output {
-                  datum: InlineDatum(raw_pool_datum),
-                  address: pool_address,
-                  value: pool_value,
-                  ..
-                },
-              ),
-              ..
-            ] = pruned_inputs
-
-            let pool_nft_check =
-              quantity_of(pool_value, pool_script_hash, pool_nft_name) == 1
-            expect Some(raw_pool_redeemer): Option<Data> =
-              dict.get(ctx.transaction.redeemers, Spend(pool_utxo))
-            expect Wrapped(pool.Redeemer {
-              action: pool.Continuing(pool.Borrow {
-                loan_amount,
-                collateral_amount: borrowed_collateral_amount,
-                interest_rate,
-                borrower_tn,
+          expect [
+            Input(
+              _,
+              Output {
+                datum: InlineDatum(raw_pool_datum),
+                address: pool_address,
+                value: pool_value,
                 ..
-              }),
-              config_ref,
+              },
+            ),
+            ..
+          ] = pruned_inputs
+
+          let pool_nft_check =
+            quantity_of(pool_value, pool_script_hash, pool_nft_name) == 1
+          expect Some(raw_pool_redeemer): Option<Data> =
+            dict.get(ctx.transaction.redeemers, Spend(pool_utxo))
+          expect Wrapped(pool.Redeemer {
+            action: pool.Continuing(pool.Borrow {
+              loan_amount,
+              collateral_amount: borrowed_collateral_amount,
+              interest_rate,
+              borrower_tn,
               ..
-            }): WrappedRedeemer<pool.Redeemer> = raw_pool_redeemer
-          
-            {
-              expect Some(Input {
-                output: Output { datum: InlineDatum(pool_config_datum), .. },
-                ..
-              }) =
-                reference_inputs
-                  |> list.find(
-                       fn(inp) -> Bool { inp.output_reference == config_ref },
-                     )
-        
-              {
-                expect pool_config: pool.Config = pool_config_datum
-             
-                {
-                  expect pool.Datum {
-                    params: pool.Constants {
-                      pool_nft_name,
-                      loan_cs,
-                      collateral_cs,
-                      oracle_collateral_asset,
-                      oracle_loan_asset,
-                      ..
-                    },
-                    lent_out: pool_lent_out,
-                    balance: pool_balance,
-                    ..
-                  }: pool.Datum = raw_pool_datum
-               
+            }),
+            config_ref,
+            ..
+          }): WrappedRedeemer<pool.Redeemer> = raw_pool_redeemer
+          expect Some(Input {
+            output: Output { datum: InlineDatum(pool_config_datum), .. },
+            ..
+          }) =
+            reference_inputs
+              |> list.find(fn(inp) -> Bool { inp.output_reference == config_ref })
+          expect pool_config: pool.Config = pool_config_datum
+          expect pool.Datum {
+            params: pool.Constants {
+              pool_nft_name,
+              loan_cs,
+              collateral_cs,
+              oracle_collateral_asset,
+              oracle_loan_asset,
+              ..
+            },
+            lent_out: pool_lent_out,
+            balance: pool_balance,
+            ..
+          }: pool.Datum = raw_pool_datum
 
-                  // To validate Oracle inputs
-                  {
-                    let valid_borrower_tn = expected_token_name == borrower_tn
-                    let expected_collateral_datum: Data =
-                      CollateralDatum {
-                        pool_nft_name,
-                        loan_cs,
-                        loan_amount,
-                        pool_config,
-                        collateral_cs,
-                        collateral_amount: borrowed_collateral_amount,
-                        interest_rate,
-                        lent_out: pool_lent_out,
-                        balance: pool_balance,
-                        deposit_time: lower_bound,
-                        borrower_tn,
-                        oracle_collateral_asset,
-                        oracle_loan_asset,
-                        tag,
-                      }
-                    let dust_attack_check =
-                      when flatten(collateral_value) is {
-                        [(_, _, _)] -> True
-                        [(_, _, _), (_, _, _)] -> True
-                        _ -> False
-                      }
-                    // Collateral output can have 2 assets at most (ADA + maybe token)
-                    let collateral_amount =
-                      quantity_of(
-                        collateral_value,
-                        collateral_cs.policy_id,
-                        collateral_cs.asset_name,
-                      )
-                    let collateral_amount_check =
-                      collateral_amount >= borrowed_collateral_amount
+          // To validate Oracle inputs
+          let valid_borrower_tn = expected_token_name == borrower_tn
+          let expected_collateral_datum: Data =
+            CollateralDatum {
+              pool_nft_name,
+              loan_cs,
+              loan_amount,
+              pool_config,
+              collateral_cs,
+              collateral_amount: borrowed_collateral_amount,
+              interest_rate,
+              lent_out: pool_lent_out,
+              balance: pool_balance,
+              deposit_time: lower_bound,
+              borrower_tn,
+              oracle_collateral_asset,
+              oracle_loan_asset,
+              tag,
+            }
+          let dust_attack_check =
+            when flatten(collateral_value) is {
+              [(_, _, _)] -> True
+              [(_, _, _), (_, _, _)] -> True
+              _ -> False
+            }
+          // Collateral output can have 2 assets at most (ADA + maybe token)
+          let collateral_amount =
+            quantity_of(
+              collateral_value,
+              collateral_cs.policy_id,
+              collateral_cs.asset_name,
+            )
+          let collateral_amount_check =
+            collateral_amount >= borrowed_collateral_amount
 
-                    let ada_cs = AssetClass("", "")
-                    let loan_amount_rat = rational.from_int(loan_amount)
-                    let loan_value =
-                      if loan_cs.policy_id == ada_cs.policy_id {
-                        loan_amount
-                      } else {
-                        expect Some(loan_tokens_price) =
-                          utils.retrieve_oracle_data(
-                            reference_inputs,
-                            oracle_loan_asset,
-                            redeemers,
-                            upper_bound,
-                          )
-                        when loan_tokens_price is {
-                          Aggregated(aggregated_data) -> {
-                            expect Some(token_price) =
-                              rational.new(
-                                aggregated_data.token_price_in_lovelaces,
-                                aggregated_data.denominator,
-                              )
-                            loan_amount_rat
-                              |> rational.mul(token_price)
-                              |> rational.truncate
-                          }
-                          Pooled(pooled_data) ->
-                            finance.token_b_needed_to_purchase_token_a(
-                              loan_amount_rat,
-                              pooled_data.token_a_amount,
-                              pooled_data.token_b_amount,
-                            )
-                        }
-                      }
-                    let collateral_amount_rat =
-                      collateral_amount |> rational.from_int()
-                    let collateral_tokens_value =
-                      if collateral_cs.policy_id == ada_cs.policy_id {
-                        collateral_amount
-                      } else {
-                        expect Some(collateral_tokens_price) =
-                          utils.retrieve_oracle_data(
-                            reference_inputs,
-                            oracle_collateral_asset,
-                            redeemers,
-                            upper_bound,
-                          )
-                        when collateral_tokens_price is {
-                          Aggregated(aggregated_data) -> {
-                            expect Some(token_price) =
-                              rational.new(
-                                aggregated_data.token_price_in_lovelaces,
-                                aggregated_data.denominator,
-                              )
-                            collateral_amount_rat
-                              |> rational.mul(token_price)
-                              |> rational.truncate
-                          }
-
-                          Pooled(pooled_data) ->
-                            finance.token_b_received_from_seling_token_a(
-                              collateral_amount_rat,
-                              pooled_data.token_a_amount,
-                              pooled_data.token_b_amount,
-                            )
-                        }
-                      }
-                    let tag_check =
-                      tag
-                        |> option.map(
-                             fn(oref) {
-                               list.any(
-                                 inputs,
-                                 fn(in) { in.output_reference == oref },
-                               )
-                             },
-                           )
-                        |> option.or_else(True)
-                    let token_name_oref_consumed_check =
-                      list.any(
-                        inputs,
-                        fn(in) { in.output_reference == pool_utxo },
-                      )
-                    let datum_check =
-                      actual_datum_output == expected_collateral_datum
-
-                    let overcollateralized_check =
-                      finance.check_is_overcollaterized(
-                        loan_value,
-                        collateral_tokens_value,
-                        pool_config.initial_collateral_ratio,
-                      )
-                    let stake_check =
-                      pool_address.stake_credential == collateral_address.stake_credential
-                    let valid = and {
-                        collateral_amount_check?,
-                        collateral_at_script_check?,
-                        datum_check?,
-                        minted_amount_check?,
-                        overcollateralized_check?,
-                        pool_nft_check?,
-                        stake_check?,
-                        tag_check?,
-                        token_name_oref_consumed_check?,
-                        dust_attack_check?,
-                        valid_borrower_tn?,
-                        valid_validity_range?,
-                      }
-                    if valid {
-                      pruned_inputs |> list.tail
-                    } else {
-                      None
-                    }
-                  }
+          let ada_cs = AssetClass("", "")
+          let loan_amount_rat = rational.from_int(loan_amount)
+          let loan_value =
+            if loan_cs.policy_id == ada_cs.policy_id {
+              loan_amount
+            } else {
+              expect Some(loan_tokens_price) =
+                utils.retrieve_oracle_data(
+                  reference_inputs,
+                  oracle_loan_asset,
+                  redeemers,
+                  upper_bound,
+                )
+              when loan_tokens_price is {
+                Aggregated(aggregated_data) -> {
+                  expect Some(token_price) =
+                    rational.new(
+                      aggregated_data.token_price_in_lovelaces,
+                      aggregated_data.denominator,
+                    )
+                  loan_amount_rat
+                    |> rational.mul(token_price)
+                    |> rational.truncate
                 }
+                Pooled(pooled_data) ->
+                  finance.token_b_needed_to_purchase_token_a(
+                    loan_amount_rat,
+                    pooled_data.token_a_amount,
+                    pooled_data.token_b_amount,
+                  )
               }
             }
-          },
-        )
-
-     
-      {
-        let burns_are_valid =
-          list.foldl(
-            burns,
-            Some(dict.to_list(own_mints)),
-            fn(
-              collateral_burn: BurnNFTElem,
-              curr_mints_opt: Option<List<(ByteArray, Int)>>,
-            ) -> Option<List<(ByteArray, Int)>> {
-              let BurnNFTElem(burn_coll_name) = collateral_burn
-              expect Some(curr_mints) = curr_mints_opt
-       
-              {
-                let pruned_mints =
-                  curr_mints
-                    |> list.drop_while(
-                         fn(burn) {
-                           let (burn_tn, _) = burn
-                           burn_coll_name != burn_tn
-                         },
-                       )
-     
-                {
-                  expect [(_, -1)] = pruned_mints |> list.take(1)
-                  list.tail(pruned_mints)
+          let collateral_amount_rat = collateral_amount |> rational.from_int()
+          let collateral_tokens_value =
+            if collateral_cs.policy_id == ada_cs.policy_id {
+              collateral_amount
+            } else {
+              expect Some(collateral_tokens_price) =
+                utils.retrieve_oracle_data(
+                  reference_inputs,
+                  oracle_collateral_asset,
+                  redeemers,
+                  upper_bound,
+                )
+              when collateral_tokens_price is {
+                Aggregated(aggregated_data) -> {
+                  expect Some(token_price) =
+                    rational.new(
+                      aggregated_data.token_price_in_lovelaces,
+                      aggregated_data.denominator,
+                    )
+                  collateral_amount_rat
+                    |> rational.mul(token_price)
+                    |> rational.truncate
                 }
-              }
-            },
-          )
 
-        and {
-          num_minted_check?,
-          option.is_some(mints_are_valid)?,
-          option.is_some(burns_are_valid)?,
-        }
-      }
+                Pooled(pooled_data) ->
+                  finance.token_b_received_from_seling_token_a(
+                    collateral_amount_rat,
+                    pooled_data.token_a_amount,
+                    pooled_data.token_b_amount,
+                  )
+              }
+            }
+          let tag_check =
+            tag
+              |> option.map(
+                   fn(oref) {
+                     list.any(inputs, fn(in) { in.output_reference == oref })
+                   },
+                 )
+              |> option.or_else(True)
+          let token_name_oref_consumed_check =
+            list.any(inputs, fn(in) { in.output_reference == pool_utxo })
+          let datum_check = actual_datum_output == expected_collateral_datum
+
+          let overcollateralized_check =
+            finance.check_is_overcollaterized(
+              loan_value,
+              collateral_tokens_value,
+              pool_config.initial_collateral_ratio,
+            )
+          let stake_check =
+            pool_address.stake_credential == collateral_address.stake_credential
+          let valid = and {
+              collateral_amount_check?,
+              collateral_at_script_check?,
+              datum_check?,
+              minted_amount_check?,
+              overcollateralized_check?,
+              pool_nft_check?,
+              stake_check?,
+              tag_check?,
+              token_name_oref_consumed_check?,
+              dust_attack_check?,
+              valid_borrower_tn?,
+              valid_validity_range?,
+            }
+          if valid {
+            pruned_inputs |> list.tail
+          } else {
+            None
+          }
+        },
+      )
+
+    let burns_are_valid =
+      list.foldl(
+        burns,
+        Some(dict.to_list(own_mints)),
+        fn(
+          collateral_burn: BurnNFTElem,
+          curr_mints_opt: Option<List<(ByteArray, Int)>>,
+        ) -> Option<List<(ByteArray, Int)>> {
+          let BurnNFTElem(burn_coll_name) = collateral_burn
+          expect Some(curr_mints) = curr_mints_opt
+          let pruned_mints =
+            curr_mints
+              |> list.drop_while(
+                   fn(burn) {
+                     let (burn_tn, _) = burn
+                     burn_coll_name != burn_tn
+                   },
+                 )
+          expect [(_, -1)] = pruned_mints |> list.take(1)
+          list.tail(pruned_mints)
+        },
+      )
+
+    and {
+      num_minted_check?,
+      option.is_some(mints_are_valid)?,
+      option.is_some(burns_are_valid)?,
     }
   }
 }

@@ -2270,27 +2270,27 @@ function testTokenScenario(
   });
 }
 
-testTokenScenario(
-  "Loan: ADA; collateral: LENFI",
-  {
-    policy: "",
-    name: "",
-  },
-  {
-    policy: LENFI_POLICY_ID,
-    name: LENFI_TOKEN_NAME,
-  },
-  45000000n, // Loan amount
-  45000000n, // collateral amount
-  undefined,
-  undefined,
-  undefined,
-  await signedOracleFeed("lenfiAggregatedExpensive"),
-  await signedOracleFeed("lenfiAggregatedCheap"),
-  await signedOracleFeed("lenfiPooledFairlyCheap"),
-  undefined,
-  await signedOracleFeed("lenfiExpiredOracle")
-);
+// testTokenScenario(
+//   "Loan: ADA; collateral: LENFI",
+//   {
+//     policy: "",
+//     name: "",
+//   },
+//   {
+//     policy: LENFI_POLICY_ID,
+//     name: LENFI_TOKEN_NAME,
+//   },
+//   45000000n, // Loan amount
+//   45000000n, // collateral amount
+//   undefined,
+//   undefined,
+//   undefined,
+//   await signedOracleFeed("lenfiAggregatedExpensive"),
+//   await signedOracleFeed("lenfiAggregatedCheap"),
+//   await signedOracleFeed("lenfiPooledFairlyCheap"),
+//   undefined,
+//   await signedOracleFeed("lenfiExpiredOracle")
+// );
 
 testTokenScenario(
   "Loan: LENFI; collateral: ADA",

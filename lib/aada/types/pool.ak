@@ -78,6 +78,7 @@ pub type Config {
   min_transition: Int,
   min_loan: Int,
   min_fee: Int,
+  min_liquidation_fee: Int,
   interest_params: InterestParams,
 }
 

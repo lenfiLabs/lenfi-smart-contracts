@@ -2,21 +2,22 @@ import { ProtocolParameters } from "translucent-cardano";
 import { PoolConfigSpend } from "./../plutus.ts";
 
 export const defaultConfig: PoolConfigSpend["datum"] = {
-  liquidationThreshold: 1800000n,
-  initialCollateralRatio: 1900000n,
-  poolFee: 0n,
-  mergeActionFee: 0n,
-  minTransition: 0n,
-  minLoan: 0n,
-  minFee: 0n,
+  liquidationThreshold: 2_000_000n,
+  initialCollateralRatio: 2_100_000n,
+  poolFee: 1_000_000n,
+  mergeActionFee: 2_000_000n,
+  minTransition: 1_000_000n,
+  minLoan: 1_000_000n,
+  minFee: 5_000_000n,
+  minLiquidationFee: 9_000_000n,
   loanFeeDetails: {
-    tier_1Fee: 0n,
-    tier_1Threshold: 100000n,
-    tier_2Fee: 0n,
-    tier_2Threshold: 450000n,
-    tier_3Fee: 0n,
-    tier_3Threshold: 600000n,
-    liquidationFee: 25000n,
+    tier_1Fee: 10_000n,
+    tier_1Threshold: 0n,
+    tier_2Fee: 15_000n,
+    tier_2Threshold: 150_000n,
+    tier_3Fee: 20_000n,
+    tier_3Threshold: 450_000n,
+    liquidationFee: 50000n,
     platformFeeCollectorAddress: {
       paymentCredential: {
         VerificationKeyCredential: [
@@ -27,10 +28,10 @@ export const defaultConfig: PoolConfigSpend["datum"] = {
     },
   },
   interestParams: {
-    optimalUtilization: 450000n,
-    baseInterestRate: 30000n,
-    rslope1: 75000n,
-    rslope2: 300000n,
+    optimalUtilization: 450_000n,
+    baseInterestRate: 30_000n,
+    rslope1: 75_000n,
+    rslope2: 3_000_000n,
   },
 };
 
@@ -395,4 +396,4 @@ export const defaultProtocolParams: ProtocolParameters = {
       "verifySchnorrSecp256k1Signature-memory-arguments": 10,
     },
   },
-}
+};

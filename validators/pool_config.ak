@@ -15,7 +15,7 @@ type ConfigRedeemer {
   fee_collector_output_index: pool.OutputIndex,
 }
 
-validator(gov_nft: AssetClass, _default_config: pool.Config) {
+validator(gov_nft: AssetClass) {
   fn spend(datum: pool.Config, redeemer: ConfigRedeemer, ctx: ScriptContext) {
     let AssetClass { policy_id, asset_name } = gov_nft
     let ScriptContext {
@@ -61,6 +61,7 @@ validator(gov_nft: AssetClass, _default_config: pool.Config) {
       min_fee,
       merge_action_fee,
       interest_params,
+      min_liquidation_fee,
     }: pool.Config = config_ouput_datum
 
     // Make sure fees are not negative
@@ -74,6 +75,7 @@ validator(gov_nft: AssetClass, _default_config: pool.Config) {
         loan_fee_details.tier_2_threshold > loan_fee_details.tier_1_threshold,
         loan_fee_details.tier_3_threshold > loan_fee_details.tier_2_threshold,
         merge_action_fee >= 0,
+        min_liquidation_fee > 0,
       }
 
     // Make sure min values are not negative 

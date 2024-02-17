@@ -284,7 +284,7 @@ export function collectValidators(
   lucid: Translucent,
   poolConfig: PoolConfigSpend["datum"],
   poolTokenName: string,
-  govTokenName: string,
+  govTokenName: string
 ) {
   // Deploy all related contracts
 
@@ -387,7 +387,10 @@ export async function getPoolArtifacts(
   );
 
   const configUTxO = await lucid.provider.getUtxoByUnit(
-    toUnit(validators.poolConfigPolicyId, poolDatumMapped.params.poolConfigAssetname)
+    toUnit(
+      validators.poolConfigPolicyId,
+      poolDatumMapped.params.poolConfigAssetname
+    )
   );
 
   if (configUTxO == null) {
@@ -513,7 +516,7 @@ export function getAdaAmountIfBought(
   assetAmount: bigint
 ): bigint {
   if ("Pooled" in oracleDatum.data) {
-        // Existing logic for Pooled
+    // Existing logic for Pooled
     const pooledData = oracleDatum.data.Pooled.find(
       (item) =>
         item.token.policyId === assetAPolicyId &&
@@ -544,17 +547,17 @@ export function getAdaAmountIfBought(
         item.token.assetName === assetATokenName
     );
     if (!aggregatedData) {
-      throw "Token not found in Aggregated price feed 2";
+      throw "Token not found in Aggregated price feed";
     }
-    return BigInt(
-      Math.floor(
-        Number(
-          new BigNumber(Number(assetAmount))
-            .multipliedBy(Number(aggregatedData.tokenPriceInLovelaces))
-            .dividedBy(Number(aggregatedData.denominator))
-        )
-      )
-    );
+
+    const assetAmountBN = new BigNumber(Number(assetAmount));
+    const tokenPrice = new BigNumber(
+      Number(aggregatedData.tokenPriceInLovelaces)
+    ).dividedBy(Number(aggregatedData.denominator));
+
+    const tokenPriceBN = assetAmountBN.multipliedBy(tokenPrice);
+
+    return BigInt(Math.floor(tokenPriceBN.toNumber()));
   } else {
     throw "Invalid price feed data";
   }
@@ -567,7 +570,6 @@ export function getAdaAmountIfSold(
   assetAmount: bigint
 ): bigint {
   if ("Pooled" in oracleDatum.data) {
-    // Existing logic for Pooled
     const pooledData = oracleDatum.data.Pooled.find(
       (item) =>
         item.token.policyId === assetAPolicyId &&
@@ -595,7 +597,6 @@ export function getAdaAmountIfSold(
       )
     );
   } else if ("Aggregated" in oracleDatum.data) {
-    // New logic for Aggregated
     const aggregatedData = oracleDatum.data.Aggregated.find(
       (item) =>
         item.token.policyId === assetAPolicyId &&
@@ -604,15 +605,25 @@ export function getAdaAmountIfSold(
     if (!aggregatedData) {
       throw "Token not found in Aggregated price feed 1";
     }
-    return BigInt(
-      Math.floor(
-        Number(
-          new BigNumber(Number(assetAmount))
-            .multipliedBy(Number(aggregatedData.tokenPriceInLovelaces))
-            .dividedBy(Number(aggregatedData.denominator))
-        )
-      )
-    );
+
+    const assetAmountBN = new BigNumber(Number(assetAmount));
+    const tokenPrice = new BigNumber(
+      Number(aggregatedData.tokenPriceInLovelaces)
+    ).dividedBy(Number(aggregatedData.denominator));
+
+    const tokenPriceBN = assetAmountBN.multipliedBy(tokenPrice);
+
+    return BigInt(Math.floor(tokenPriceBN.toNumber()));
+
+    // return BigInt(
+    //   Math.floor(
+    //     Number(
+    //       new BigNumber(Number(assetAmount))
+    //         .multipliedBy(Number(aggregatedData.tokenPriceInLovelaces))
+    //         .dividedBy(Number(aggregatedData.denominator))
+    //     )
+    //   )
+    // );
   } else {
     throw "Invalid price feed data";
   }
