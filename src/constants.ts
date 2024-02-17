@@ -1,14 +1,15 @@
 import { ProtocolParameters } from "translucent-cardano";
 import { PoolConfigSpend } from "./../plutus.ts";
 
-export const defaultConfig: PoolConfigSpend['datum'] = {
+export const defaultConfig: PoolConfigSpend["datum"] = {
   liquidationThreshold: 2_000_000n,
   initialCollateralRatio: 2_100_000n,
   poolFee: 1_000_000n,
   mergeActionFee: 2_000_000n,
-  minTransition: 50_000_000n,
-  minLoan: 50_000_000n,
+  minTransition: 1_000_000n,
+  minLoan: 1_000_000n,
   minFee: 5_000_000n,
+  minLiquidationFee: 9_000_000n,
   loanFeeDetails: {
     tier_1Fee: 10_000n,
     tier_1Threshold: 0n,
@@ -16,10 +17,12 @@ export const defaultConfig: PoolConfigSpend['datum'] = {
     tier_2Threshold: 150_000n,
     tier_3Fee: 20_000n,
     tier_3Threshold: 450_000n,
-    liquidationFee: 25000n,
+    liquidationFee: 50000n,
     platformFeeCollectorAddress: {
       paymentCredential: {
-        VerificationKeyCredential: ['06e8ffe98775e0be22aac778e5e4d814c4bc58d58a554219fc9d5287'],
+        VerificationKeyCredential: [
+          "06e8ffe98775e0be22aac778e5e4d814c4bc58d58a554219fc9d5287",
+        ],
       },
       stakeCredential: null,
     },
@@ -30,7 +33,7 @@ export const defaultConfig: PoolConfigSpend['datum'] = {
     rslope1: 75_000n,
     rslope2: 3_000_000n,
   },
-}
+};
 
 export const defaultProtocolParams: ProtocolParameters = {
   minFeeA: 44,
@@ -393,4 +396,4 @@ export const defaultProtocolParams: ProtocolParameters = {
       "verifySchnorrSecp256k1Signature-memory-arguments": 10,
     },
   },
-}
+};

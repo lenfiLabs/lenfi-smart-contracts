@@ -151,19 +151,26 @@ export async function poolLiquidate(
           oracleValidators
         ));
 
+      debtValueInAda = debtValueInAda - 1n; // Because of rounding on-chain; off-chain could end up with value higher by one unit.
+
       borrowerNftsToBurn.push({ tokenName: collateralDatumMapped.borrowerTn });
 
       const feePercentage = new BigNumber(
         Number(collateralDatumMapped.poolConfig.loanFeeDetails.liquidationFee)
       );
 
-      const feeAmount = Math.floor(
+      let feeAmount = Math.floor(
         new BigNumber(Number(collateralValueInAda))
           .minus(Number(debtValueInAda))
           .multipliedBy(feePercentage)
           .dividedBy(1000000)
           .toNumber()
       );
+
+      if (feeAmount < collateralDatumMapped.poolConfig.minLiquidationFee) {
+        feeAmount = Number(collateralDatumMapped.poolConfig.minLiquidationFee);
+      }
+
 
       const remainingCollateralValue = new BigNumber(
         Number(collateralValueInAda)
@@ -197,13 +204,11 @@ export async function poolLiquidate(
           Number(collateralDatumMapped.poolConfig.liquidationThreshold)
         );
 
-
       if (
         !ignoreBorrower &&
         remaminingValueInCollateral.gt(0) &&
         healthFactor.lt(1)
       ) {
-
         const leftoverAddress = lucid.utils.validatorToAddress(
           validators.leftoverValidator,
           stakeCredentialOf(rewardsAddress)

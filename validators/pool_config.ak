@@ -61,6 +61,7 @@ validator(gov_nft: AssetClass) {
       min_fee,
       merge_action_fee,
       interest_params,
+      min_liquidation_fee,
     }: pool.Config = config_ouput_datum
 
     // Make sure fees are not negative
@@ -74,6 +75,7 @@ validator(gov_nft: AssetClass) {
         loan_fee_details.tier_2_threshold > loan_fee_details.tier_1_threshold,
         loan_fee_details.tier_3_threshold > loan_fee_details.tier_2_threshold,
         merge_action_fee >= 0,
+        min_liquidation_fee > 0,
       }
 
     // Make sure min values are not negative 
