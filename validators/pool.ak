@@ -47,12 +47,14 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
         reference_inputs,
         fn(inp) -> Bool { inp.output_reference == config_ref },
       )
+    // Make sure pool config NFT is in the transaction
     let config_has_nft =
       quantity_of(
         config_input.output.value,
         pool_config_script_hash,
         params.pool_config_assetname,
       ) == 1
+
     expect InlineDatum(raw_config_input_datum) = config_input.output.datum
     expect pool.Config {
       pool_fee,
@@ -62,6 +64,8 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
       interest_params,
       ..
     }: pool.Config = raw_config_input_datum
+
+    // Validated pool deposit/withdraw transition
     let validate_transition =
       fn(pool_output: pool.OutputIndex, f_delta: fn(Int, Int, Int) -> Bool) -> Bool {
         expect Some(pool_output) = outputs |> list.at(pool_output)
@@ -82,12 +86,15 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
         let expected_value_with_input =
           merge(pool_input_value, expected_change_value)
 
+        
         let dust_attack_check =
           without_lovelace(expected_value_with_input) == without_lovelace(
             pool_output.value,
           )
 
         let valid_pool_output_address = pool_output.address == this_address
+
+        // Pool receives value it expects
         let value_change_check =
           quantity_of(
             expected_value_with_input,
@@ -98,12 +105,15 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
             params.loan_cs.policy_id,
             params.loan_cs.asset_name,
           )
+        // Pol NFT is present in both input and output
         let pool_input_nft_check =
           quantity_of(pool_input_value, pool_nft_policy, params.pool_nft_name) == 1
 
         let pool_output_nft_check =
           quantity_of(pool_output.value, pool_nft_policy, params.pool_nft_name) == 1
+
         let valid_pool_token_tx = pool_output_nft_check && pool_input_nft_check
+
         let params_check = output_params == params
         let f_delta_check =
           f_delta(
@@ -123,6 +133,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
       }
     when action is {
       pool.Destroy -> {
+        // Can only destroy if all LP tokens are burned
         let lp_token_delta =
           quantity_of(
             mint,
@@ -132,9 +143,11 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
         let no_remaining_liquidity_tokens =
           lp_token_delta + total_lp_tokens == 0
 
+        // Only one pool mint transaction when destroying
         expect Some(mint_redeemer) =
           redeemers
             |> dict.get(Mint(pool_nft_policy))
+
         expect mint_redeemer: pool.PoolNFTAction = mint_redeemer
         expect pool.BurnPoolNFT(burn_tn) = mint_redeemer
         let burned_token_name_match = burn_tn == params.pool_nft_name
@@ -249,7 +262,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
             }
           }
           pool.CloseLoan { loan_amount, repay_amount, continuing_output } -> {
-            // Anyone could 'repay' loan without unlocking actual collateral. This would simply enlarge the pool.
+            
             let loan_amt_check = loan_amount > 0
             let repay_amt_check = repay_amount > loan_amount
             let transition_validator =
@@ -330,9 +343,13 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
           expect pool_stake.CreatePool(_withdraw_validator_oref) =
             withdraw_validator_redeemer
           let correct_credential = out_credential == pool_control_credential
+          
+          // Pool NFT name is stake_hash
           let correct_quantity_output =
             quantity_of(value, own_script, stake_hash) == 1
+
           expect [(_stake_hash, 1)] = tokens(mint, own_script) |> dict.to_list
+
           let no_dust_attack =
             when flatten(value) is {
               [(_, _, _)] -> True
@@ -347,7 +364,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
           }
         }
 
-        // Since Pool NFT is locked in Pool Validator. You can't easily burn it.
+        // Pool NFT is locked in Pool Validator. You can't easily burn it.
         // Should expect only one policy mint and it's -1
         pool.BurnPoolNFT(burn_tn) -> {
           expect [(burnt_nft_name, -1)] =

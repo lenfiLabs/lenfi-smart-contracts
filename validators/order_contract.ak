@@ -199,7 +199,6 @@ validator {
   }
 }
 
-// IMPROVEMENT: Borrow contract should take 2 partial outputs, never need output_has_quantity_with_address
 validator {
   fn borrow_order_contract(
     datum: order.Datum<order.BorrowRequest>,
@@ -236,17 +235,12 @@ validator {
           let order.ProcessBorrow(borrower_token_name, additional_ada) =
             borrow_redeemer
           // Lender must receive the LPs
-          // we enforce two outputs:
-          // -> Borrower receives loan & nft
-          // -> Collateral is sent to collateral address
-          // loan received
           let user_received_value =
             list.any(
               ctx.transaction.outputs,
               fn(out) { out == expected_output },
             )
           // because the nft policy only mints one at a time, we know this is unique.
-          // possibly can optimise by just checking the dict for the policy id, and grabbing the (only) name value
           let borrower_token_minted =
             quantity_of(
               from_minted_value(ctx.transaction.mint),
@@ -276,8 +270,6 @@ validator {
               fn(out) { out == expected_recipient_output },
             )
           let collateral_output_match =
-            // Min deposit time should be set when creating order. 
-
             (
               list.filter(
                 ctx.transaction.outputs,

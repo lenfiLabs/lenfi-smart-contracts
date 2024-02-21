@@ -176,6 +176,58 @@ const feeds: Feeds = {
       },
     ],
   },
+  minPooledCheap: {
+    Pooled: [
+      {
+        token: {
+          policyId: LENFI_POLICY_ID,
+          assetName: LENFI_TOKEN_NAME,
+        },
+        tokenAAmount: 10000000000000n,
+        tokenBAmount: 1000000000000n,
+        validTo,
+      },
+    ],
+  },
+  minPooledExpensive: {
+    Pooled: [
+      {
+        token: {
+          policyId: LENFI_POLICY_ID,
+          assetName: LENFI_TOKEN_NAME,
+        },
+        tokenAAmount: 1000000000000n,
+        tokenBAmount: 2500000000000n,
+        validTo,
+      },
+    ],
+  },
+  minPooledFairlyCheap: {
+    Pooled: [
+      {
+        token: {
+          policyId: LENFI_POLICY_ID,
+          assetName: LENFI_TOKEN_NAME,
+        },
+        tokenAAmount: 3000000000000n,
+        tokenBAmount: 4000000000000n,
+        validTo,
+      },
+    ],
+  },
+  minPooledFairlyExpensive: {
+    Pooled: [
+      {
+        token: {
+          policyId: LENFI_POLICY_ID,
+          assetName: LENFI_TOKEN_NAME,
+        },
+        tokenAAmount: 1800000000000n,
+        tokenBAmount: 2500000000000n,
+        validTo,
+      },
+    ],
+  },
   lenfiExpiredOracle: {
     Pooled: [
       {
@@ -222,10 +274,6 @@ export const signedOracleFeed = async (
         signature: signedData.signature,
         keyPosition: 0n,
       },
-      // {
-      //   signature: signedData2.signature,
-      //   keyPosition: 1n,
-      // }
     ],
   };
   return result;

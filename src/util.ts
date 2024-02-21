@@ -646,8 +646,8 @@ export function assetGainAdaSale(
     }
 
     const sellAmountBN = new BigNumber(Number(sellAmount));
-    const token1AmountBN = new BigNumber(Number(pooledData.tokenBAmount));
-    const token2AmountBN = new BigNumber(Number(pooledData.tokenAAmount));
+    const token1AmountBN = new BigNumber(Number(pooledData.tokenAAmount));
+    const token2AmountBN = new BigNumber(Number(pooledData.tokenBAmount));
 
     const nominator = sellAmountBN
       .multipliedBy(997)

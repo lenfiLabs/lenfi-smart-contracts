@@ -19,6 +19,7 @@ validator(pool_script_hash: ByteArray) {
       list.find(inputs, fn(input) { input.output_reference == own_oref })
 
     let withdraw_cred = Inline(own_input.output.address.payment_credential)
+
     // Can spend ALL THE merge inputs if ALL THE withdrawals are valid
     dict.has_key(withdrawals, withdraw_cred)
   }
@@ -64,7 +65,7 @@ validator(pool_script_hash: ByteArray) {
                   }
                 },
               )
-            // Sum the totals of merges
+            // Sum multiple repayments if it's present
             let total_repay_amount =
               list.foldl(
                 merges,
@@ -78,6 +79,7 @@ validator(pool_script_hash: ByteArray) {
                   merge_datum.repay_amount + total
                 },
               )
+            // Sum multiple loans if it's present
             let total_loan_amount =
               list.foldl(
                 merges,

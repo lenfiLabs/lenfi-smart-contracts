@@ -13,10 +13,13 @@ type TokenRedeemer {
   DestroyPool { pool_oref: OutputReference }
 }
 
+// Liquidity token is a representation of the pool liquidity.
+
 validator(pool_hash: ByteArray, token_name: ByteArray) {
   fn liquidity_token(redeemer: TokenRedeemer, ctx: ScriptContext) {
     expect Mint(own_policy) = ctx.purpose
     when redeemer is {
+      // Deposit or Withdraw redeemer
       TransitionPool { pool_oref, continuing_output } -> {
         expect Some(pool_input) =
           ctx.transaction.inputs
@@ -38,6 +41,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
             [(_, _, _), (_, _, _), (_, _, _)] -> True
             _ -> False
           }
+        // Makes sure Pool NFT is present as well as it's in the output
         let nfts_check =
           quantity_of(pool_input.output.value, pool_hash, id) == 1 && quantity_of(
             pool_output.value,
@@ -49,6 +53,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
           tokens(from_minted_value(ctx.transaction.mint), own_policy)
             |> dict.to_list()
 
+        // LP token name must match LP token name which is also pool Stake-creds hash
         let valid_lp_token_name =
           lp_token_name == output_datum.params.pool_nft_name && lp_token_name == token_name
         let valid_lp_token_change =
@@ -90,52 +95,47 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
         }
       }
       CreatePool { produced_output } -> {
-   
-        {
-          expect Some(pool_output) =
-            ctx.transaction.outputs |> list.at(produced_output)
-          expect InlineDatum(output_datum) = pool_output.datum
-          expect output_datum: pool.Datum = output_datum
-          let mint = from_minted_value(ctx.transaction.mint)
+        expect Some(pool_output) =
+          ctx.transaction.outputs |> list.at(produced_output)
+        expect InlineDatum(output_datum) = pool_output.datum
+        expect output_datum: pool.Datum = output_datum
+        let mint = from_minted_value(ctx.transaction.mint)
 
-          // Expects only one tokenName to be minted
-          expect [(pool_token_name, 1)] = dict.to_list(tokens(mint, pool_hash))
+        // Expects only one tokenName to be minted
+        expect [(pool_token_name, 1)] = dict.to_list(tokens(mint, pool_hash))
 
-          // Doing an extra check for all the name matching
-          let correct_pooltoken_name = and {
-              pool_token_name == output_datum.params.pool_nft_name,
-              token_name == pool_token_name,
-            }
-
-          let lp_tokens_minted = quantity_of(mint, own_policy, pool_token_name)
-          let depositing_tokens_count_actual =
-            quantity_of(
-              pool_output.value,
-              output_datum.params.loan_cs.policy_id,
-              output_datum.params.loan_cs.asset_name,
-            )
-          // Can it be redundant? Pool.ak has valid_pool_output()
-          let correct_pooltoken_out =
-            quantity_of(pool_output.value, pool_hash, pool_token_name) == 1
-
-          let correct_recorded_lptokens =
-            output_datum.total_lp_tokens == lp_tokens_minted
-          let depositing_gt_0 = depositing_tokens_count_actual > 0
-          let depositing_at_script =
-            depositing_tokens_count_actual == output_datum.balance
-
-          {
-            let minted_lp_match_deposit =
-              depositing_tokens_count_actual == lp_tokens_minted
-            and {
-              correct_pooltoken_out?,
-              correct_recorded_lptokens?,
-              depositing_gt_0?,
-              depositing_at_script?,
-              minted_lp_match_deposit?,
-              correct_pooltoken_name?,
-            }
+        // Doing an extra check for all the name matching
+        let correct_pooltoken_name = and {
+            pool_token_name == output_datum.params.pool_nft_name,
+            token_name == pool_token_name,
           }
+
+        let lp_tokens_minted = quantity_of(mint, own_policy, pool_token_name)
+        let depositing_tokens_count_actual =
+          quantity_of(
+            pool_output.value,
+            output_datum.params.loan_cs.policy_id,
+            output_datum.params.loan_cs.asset_name,
+          )
+        let correct_pooltoken_out =
+          quantity_of(pool_output.value, pool_hash, pool_token_name) == 1
+
+        let correct_recorded_lptokens =
+          output_datum.total_lp_tokens == lp_tokens_minted
+
+        let depositing_gt_0 = depositing_tokens_count_actual > 0
+        let depositing_at_script =
+          depositing_tokens_count_actual == output_datum.balance
+
+        let minted_lp_match_deposit =
+          depositing_tokens_count_actual == lp_tokens_minted
+        and {
+          correct_pooltoken_out?,
+          correct_recorded_lptokens?,
+          depositing_gt_0?,
+          depositing_at_script?,
+          minted_lp_match_deposit?,
+          correct_pooltoken_name?,
         }
       }
     }
