@@ -33,7 +33,7 @@ validator(
     )
   }
 
-  // Validate that 5/9 oracles have signed on this TX
+  // Validate that n/m oracles have signed on this TX
   fn withdraw_validate(redeemer: OracleRedeemer, ctx: ScriptContext) -> Bool {
     expect ScriptContext {
       transaction: Transaction { .. },

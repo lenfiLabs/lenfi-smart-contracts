@@ -134,7 +134,7 @@ validator(gov_nft: AssetClass) {
       Mint(this_policy) -> {
         let Transaction { inputs, mint, .. } = transaction
         let NFTRedeemerElement { action, .. } = r
-        // need to enforce output is at this script. 
+        // Offchain validates if this NFT is sent to current pool. 
         check_uniqueness(action, inputs, mint, this_policy)
       }
       _ -> False

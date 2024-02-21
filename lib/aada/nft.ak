@@ -5,7 +5,7 @@ use aiken/list
 use aiken/transaction.{Input, OutputReference}
 use aiken/transaction/value.{MintedValue}
 
-// TODO: Consolidate types into simplier
+
 pub type NFTAction {
   // Consumed oref, Index of produced output
   MintNFT(OutputReference, Int)
@@ -39,9 +39,6 @@ pub fn id_from_utxo(consumed_utxo: OutputReference) -> ByteArray {
   hash.blake2b_256(builtin.serialise_data(consumed_utxo))
 }
 
-// I think NFTs are a moderate security vector right now
-// Bc if we want to make simplifications, we need to enforce
-// certain contexts (e.g that pool is called in certain way)
 
 pub fn check_uniqueness(
   nft_action: NFTAction,

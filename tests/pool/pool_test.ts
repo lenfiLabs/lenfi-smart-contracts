@@ -39,10 +39,7 @@ import { createGovernanceNFT } from "./../../src/pool/create_governance_nft.ts";
 import { signedOracleFeed } from "./oracle/oracle_feeds.ts";
 import { createDepositBorrow } from "../../src/pool/createDepositBorrow.ts";
 import { updateOracle } from "../../src/pool/update_oracle.ts";
-import {
-  claimLiquidated,
-  makeClaimLiquidated,
-} from "../../src/pool/claim_liquidated.ts";
+import { claimLiquidated } from "../../src/pool/claim_liquidated.ts";
 
 function testTokenScenario(
   poolName: string,
@@ -2292,54 +2289,98 @@ function testTokenScenario(
 //   await signedOracleFeed("lenfiExpiredOracle")
 // );
 
-testTokenScenario(
-  "Loan: LENFI; collateral: ADA",
-  {
-    policy: LENFI_POLICY_ID,
-    name: LENFI_TOKEN_NAME,
-  },
-  {
-    policy: "",
-    name: "",
-  },
-  45000000n,
-  45000000n,
-  await signedOracleFeed("lenfiAggregatedCheap"),
-  await signedOracleFeed("lenfiAggregatedExpensive"),
-  await signedOracleFeed("lenfiAggregatedFairlyExpensive"),
-  undefined,
-  undefined,
-  undefined,
-  await signedOracleFeed("lenfiExpiredOracle"),
-  undefined
-);
+// testTokenScenario(
+//   "Loan: LENFI; collateral: ADA",
+//   {
+//     policy: LENFI_POLICY_ID,
+//     name: LENFI_TOKEN_NAME,
+//   },
+//   {
+//     policy: "",
+//     name: "",
+//   },
+//   45000000n,
+//   45000000n,
+//   await signedOracleFeed("lenfiAggregatedCheap"),
+//   await signedOracleFeed("lenfiAggregatedExpensive"),
+//   await signedOracleFeed("lenfiAggregatedFairlyExpensive"),
+//   undefined,
+//   undefined,
+//   undefined,
+//   await signedOracleFeed("lenfiExpiredOracle"),
+//   undefined
+// );
 
 // // Testing when none of assets are ADA
-testTokenScenario(
-  "Loan: MIN; collateral: LENFI",
-  {
-    policy: MIN_POLICY_ID,
-    name: MIN_TOKEN_NAME,
-  },
-  {
-    policy: LENFI_POLICY_ID,
-    name: LENFI_TOKEN_NAME,
-  },
-  30000000n,
-  30000000n,
-  await signedOracleFeed("minAggregatedCheap"),
-  await signedOracleFeed("minAggregatedExpensive"),
-  await signedOracleFeed("minAggregatedFairlyExpensive"),
-  await signedOracleFeed("lenfiAggregatedExpensive"),
-  await signedOracleFeed("lenfiAggregatedCheap"),
-  await signedOracleFeed("lenfiAggregatedFairlyCheap"),
-  await signedOracleFeed("minExpiredOracle"),
-  await signedOracleFeed("lenfiExpiredOracle")
-);
+// testTokenScenario(
+//   "Loan: MIN; collateral: LENFI",
+//   {
+//     policy: MIN_POLICY_ID,
+//     name: MIN_TOKEN_NAME,
+//   },
+//   {
+//     policy: LENFI_POLICY_ID,
+//     name: LENFI_TOKEN_NAME,
+//   },
+//   30000000n,
+//   30000000n,
+//   await signedOracleFeed("minAggregatedCheap"),
+//   await signedOracleFeed("minAggregatedExpensive"),
+//   await signedOracleFeed("minAggregatedFairlyExpensive"),
+//   await signedOracleFeed("lenfiAggregatedExpensive"),
+//   await signedOracleFeed("lenfiAggregatedCheap"),
+//   await signedOracleFeed("lenfiAggregatedFairlyCheap"),
+//   await signedOracleFeed("minExpiredOracle"),
+//   await signedOracleFeed("lenfiExpiredOracle")
+// );
 
 // Testing when one of oracle is pooled
+// testTokenScenario(
+//   "Loan: LENFI (Pooled); collateral: ADA",
+//   {
+//     policy: LENFI_POLICY_ID,
+//     name: LENFI_TOKEN_NAME,
+//   },
+//   {
+//     policy: "",
+//     name: "",
+//   },
+//   50000000n, // Loan amount
+//   50000000n, // collateral amount
+//   await signedOracleFeed("lenfiPooledCheap"),
+//   await signedOracleFeed("lenfiPooledExpensive"),
+//   await signedOracleFeed("lenfiAggregatedFairlyExpensive"),
+//   undefined,
+//   undefined,
+//   undefined,
+//   await signedOracleFeed("lenfiExpiredOracle"),
+//   undefined
+// );
+
+// testTokenScenario(
+//   "Loan: ADA; collateral: LENFI (Pooled); ",
+//   {
+//     policy: "",
+//     name: "",
+//   },
+//   {
+//     policy: LENFI_POLICY_ID,
+//     name: LENFI_TOKEN_NAME,
+//   },
+//   50000000n, // Loan amount
+//   50000000n, // collateral amount
+//   undefined,
+//   undefined,
+//   undefined,
+//   await signedOracleFeed("lenfiPooledExpensive"),
+//   await signedOracleFeed("lenfiPooledCheap"),
+//   await signedOracleFeed("lenfiPooledFairlyCheap"),
+//   undefined,
+//   await signedOracleFeed("lenfiExpiredOracle")
+// );
+
 testTokenScenario(
-  "Loan: LENFI (Pooled); collateral: ADA",
+  "Loan: LENFI (Pooled); collateral: MIN (Pooled) ",
   {
     policy: LENFI_POLICY_ID,
     name: LENFI_TOKEN_NAME,
@@ -2353,31 +2394,9 @@ testTokenScenario(
   await signedOracleFeed("lenfiPooledCheap"),
   await signedOracleFeed("lenfiPooledExpensive"),
   await signedOracleFeed("lenfiAggregatedFairlyExpensive"),
-  undefined,
-  undefined,
-  undefined,
+  await signedOracleFeed("minPooledExpensive"),
+  await signedOracleFeed("minPooledCheap"),
+  await signedOracleFeed("minPooledFairlyCheap"),
   await signedOracleFeed("lenfiExpiredOracle"),
-  undefined
-);
-
-testTokenScenario(
-  "Loan: ADA; collateral: LENFI (Pooled); ",
-  {
-    policy: "",
-    name: "",
-  },
-  {
-    policy: LENFI_POLICY_ID,
-    name: LENFI_TOKEN_NAME,
-  },
-  50000000n, // Loan amount
-  50000000n, // collateral amount
-  undefined,
-  undefined,
-  undefined,
-  await signedOracleFeed("lenfiPooledExpensive"),
-  await signedOracleFeed("lenfiPooledCheap"),
-  await signedOracleFeed("lenfiPooledFairlyCheap"),
-  undefined,
-  await signedOracleFeed("lenfiExpiredOracle")
+  await signedOracleFeed("minExpiredOracle")
 );

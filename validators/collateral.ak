@@ -319,8 +319,8 @@ validator(collateral_script_params: CollateralParams) {
                 Pooled(pooled_data) ->
                   finance.token_b_received_from_seling_token_a(
                     borrower_compensation_in_ada,
+                    pooled_data.token_b_amount, 
                     pooled_data.token_a_amount,
-                    pooled_data.token_b_amount,
                   )
               }
             }

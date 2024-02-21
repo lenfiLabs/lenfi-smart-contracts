@@ -125,7 +125,6 @@ pub fn authorized_by_credential(
   withdrawals: dict.Dict<StakeCredential, Int>,
   payment_key: Credential,
 ) -> Bool {
-  // todo: consider supporting all script types.
   when payment_key is {
     // either credential is a spending key, or script using stake-withdraw-0
     VerificationKeyCredential(payment_key_hash) ->
