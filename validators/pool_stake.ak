@@ -4,6 +4,7 @@ use aada/types/oracle.{Aggregated, Pooled}
 use aada/types/pool
 use aada/types/pool_stake
 use aada/utils
+use aiken/cbor
 use aiken/dict
 use aiken/interval.{Finite}
 use aiken/list
@@ -87,6 +88,8 @@ fn pool_stake_withdraw(
   expect pool.PayFee(fee_amount, ..) = continuing_action
 
   let asset_is_ada = pool_datum.params.loan_cs.policy_id == #""
+  trace cbor.diagnostic(fee_amount)
+  trace cbor.diagnostic(current_withdrawal_fee_adjusted)
 
   when action is {
     pool_stake.ExactWithdrawal -> {
@@ -130,12 +133,12 @@ fn pool_stake_withdraw(
             Pooled(pooled_data) ->
               finance.token_b_received_from_seling_token_a(
                 current_withdrawal_fee_adjusted |> rational.from_int(),
-                pooled_data.token_a_amount,
                 pooled_data.token_b_amount,
+                pooled_data.token_a_amount,
               )
           }
         }
-
+      trace cbor.diagnostic(expected_deposit_amount)
       let amount_check = expected_deposit_amount <= fee_amount
       and {
         amount_check?,

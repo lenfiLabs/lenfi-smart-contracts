@@ -1,5 +1,4 @@
 use aada/types/pool
-use aada/utils
 use aiken/math/rational.{Rational}
 use aiken/option
 
@@ -25,22 +24,6 @@ pub fn get_expected_deposit_amount(
     |> rational.new(total_lp_tokens)
 }
 
-/// Retired. Keeping it now to prove the tests
-pub fn retired_calculate_sale(
-  sell_amount: Rational,
-  token_2_amount: Int,
-  token_1_amount: Int,
-) -> Int {
-  expect Some(result) =
-    sell_amount
-      |> rational.mul(997 * token_1_amount |> rational.from_int)
-      |> utils.safe_div(
-           token_2_amount * 1000
-             |> rational.from_int
-             |> rational.add(997 |> rational.from_int |> rational.mul(sell_amount)),
-         )
-  rational.truncate(result)
-}
 
 pub fn token_b_received_from_seling_token_a(
   sell_amount: Rational,
@@ -53,26 +36,6 @@ pub fn token_b_received_from_seling_token_a(
   let denominator = token_a_amount * 1000 + 997 * sell_amount_int
   let asset_return = nominator / denominator
   asset_return
-}
-
-/// Calculate the return from selling tokens
-/// Retired. Keeping it now to prove the tests
-pub fn retired_ada_for_purchase(
-  buy_amount: Rational,
-  token_2_amount: Int,
-  token_1_amount: Int,
-) -> Int {
-  expect Some(result) =
-    buy_amount
-      |> rational.mul(1000 * token_1_amount |> rational.from_int)
-      |> utils.safe_div(
-           token_2_amount
-             |> rational.from_int
-             |> rational.sub(buy_amount)
-             |> rational.mul(997 |> rational.from_int),
-         )
-
-  rational.truncate(result)
 }
 
 /// Calculate the ada required to purchase tokens

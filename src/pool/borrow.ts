@@ -137,7 +137,7 @@ export async function makeBorrow(
     poolNftName: poolDatumMapped.params.poolNftName,
     loanCs: poolDatumMapped.params.loanCs,
     loanAmount: BigInt(loanAmount),
-    poolConfig: poolArtifacts.poolConfigDatum, // TODO: This is not correct
+    poolConfig: poolArtifacts.poolConfigDatum, 
     collateralCs: poolDatumMapped.params.collateralCs,
     collateralAmount: BigInt(collateralAmount),
     interestRate: interestRate,

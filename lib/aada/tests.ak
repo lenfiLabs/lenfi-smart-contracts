@@ -238,7 +238,7 @@ test check_lenfi_sale() {
 
 // Selling ADA for LENFI
 test check_ada_sale_for_lenfi() {
-  let sell_amount = 1000000000
+  let sell_amount = 50000000
   // SELLING THIS AMOUNT OF ADA
   let lenfi_in_pool = 434698523921
   let ada_in_pool = 3168139297676
@@ -294,37 +294,7 @@ test asset_gain_ada_sale_test() {
   finance.retired_asset_gain_adasale(sell_amount, lenfi_in_pool, ada_in_pool) == 7232658426
 }
 
-test sale_function_matching() {
-  let buy_amount = 1000000000
-  let lenfi_in_pool = 435169426396
-  let ada_in_pool = 3164135184992
 
-  finance.retired_ada_for_purchase(
-    rational.from_int(buy_amount),
-    lenfi_in_pool,
-    ada_in_pool,
-  ) == finance.token_b_needed_to_purchase_token_a(
-    rational.from_int(buy_amount),
-    lenfi_in_pool,
-    ada_in_pool,
-  )
-}
-
-test buy_function_matching() {
-  let sell_amount = 1000000000
-  let lenfi_in_pool = 435169426396
-  let ada_in_pool = 3164135184992
-
-  finance.retired_calculate_sale(
-    rational.from_int(sell_amount),
-    lenfi_in_pool,
-    ada_in_pool,
-  ) == finance.token_b_received_from_seling_token_a(
-    rational.from_int(sell_amount),
-    lenfi_in_pool,
-    ada_in_pool,
-  )
-}
 
 test asset_gain_function_matching_test() {
   let sell_amount = 1000000000
