@@ -2,7 +2,6 @@ use aada/finance
 use aada/nft.{CollateralNFTRedeemerLists, MintNFTElem}
 use aada/types/pool
 use aada/types/pool_stake
-use aiken/cbor
 use aiken/dict
 use aiken/list
 use aiken/math/rational
@@ -196,8 +195,6 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
 
             // When withdrawing owned_proportion means max you can withdraw.
             // When depositing owned_proportion means min you can deposit.
-            trace cbor.diagnostic(rational.truncate(owned_proportion))
-            trace cbor.diagnostic(value_delta)
 
             let check_delta_amount =
               if value_delta < 0 {
