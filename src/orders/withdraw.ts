@@ -1,12 +1,11 @@
 import {
   Data,
   getAddressDetails,
-  toUnit,
   Translucent,
   Tx,
 } from "translucent-cardano";
 import {
-  calculateLpTokens,
+  calculateLpsToBurn,
   getPoolArtifacts,
   getValidityRange,
   OutputValue,
@@ -14,11 +13,11 @@ import {
   updateUserValue,
   ValidatorRefs,
 } from "./../../src/util.ts";
-import { LpTokenCalculation, ValidityRange } from "./../../src/types.ts";
+import { ValidityRange } from "./../../src/types.ts";
 import { OrderContractWithdrawOrderContract } from "./../../plutus.ts";
 
 interface BatcherWithdrawArgs {
-  balanceToWithdraw: bigint; // Amount of tokens user want to withdraw (MUST BE NEGATIVE)
+  amountToWithdraw: bigint; // Amount of tokens user want to withdraw (MUST BE NEGATIVE)
   poolTokenName: string;
 }
 
@@ -26,7 +25,7 @@ export async function placeWithdrawalOrder(
   lucid: Translucent,
   tx: Tx,
   now: number,
-  { balanceToWithdraw, poolTokenName }: BatcherWithdrawArgs,
+  { amountToWithdraw, poolTokenName }: BatcherWithdrawArgs,
   { validators }: ValidatorRefs
 ) {
   const validityRange: ValidityRange = getValidityRange(lucid, now);
@@ -42,14 +41,13 @@ export async function placeWithdrawalOrder(
   );
   const poolDatumMapped = poolArtifacts.poolDatumMapped;
 
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  const lpsToBurn = calculateLpsToBurn(
     poolDatumMapped.balance,
     poolDatumMapped.lentOut,
-    balanceToWithdraw,
+    amountToWithdraw,
     poolDatumMapped.totalLpTokens
   );
 
-  const lpTokensToWithdraw = lpTokensToDepositDetails.lpTokenMintAmount;
   const walletAddress = await lucid.wallet.address();
   const walletDetails = getAddressDetails(walletAddress);
 
@@ -63,7 +61,7 @@ export async function placeWithdrawalOrder(
     },
     batcherFeeAda: BigInt(2000000),
     order: {
-      lpTokensBurn: BigInt(lpTokensToWithdraw),
+      lpTokensBurn: BigInt(lpsToBurn),
       partialOutput: {
         address: {
           paymentCredential: {
@@ -93,7 +91,7 @@ export async function placeWithdrawalOrder(
     [toUnitOrLovelace(
       poolDatumMapped.params.lpToken.policyId,
       poolDatumMapped.params.lpToken.assetName
-    )]: BigInt(lpTokensToWithdraw),
+    )]: BigInt(lpsToBurn),
   };
 
   let valueSendToBatcher: OutputValue = { lovelace: 4000000n };
