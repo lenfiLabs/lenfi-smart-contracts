@@ -45,7 +45,6 @@ export type OutputReference = {
 
 const publicApiHost = "http://192.168.215.3:5000/public-api";
 const queryAPI = "https://aada-v2-api-stag.aada.finance/api/v0.1";
-const BLOCKFROST_API_KEY = "preprodDGwWUDsZ4nxxBl3MizYhipL0Wjb57HW0"; // Please replace 'your_api_key' with your actual Blockfrost API key
 
 export const MIN_ADA = 2n * 1_000_000n;
 
@@ -56,51 +55,85 @@ export function utxoToOref(utxo: UTxO): OutputReference {
   };
 }
 
-export function calculateLpTokens(
+// export function calculateLpTokens(
+//   initialCount: bigint,
+//   alreadyLend: bigint,
+//   balanceToDeposit: bigint,
+//   totalLpTokens: bigint
+// ): LpTokenCalculation {
+//   const initialCountBN = new BigNumber(Number(initialCount));
+//   const alreadyLendBN = new BigNumber(Number(alreadyLend));
+//   const balanceToDepositBN = new BigNumber(Number(balanceToDeposit));
+//   const totalLPTokensBN = new BigNumber(Number(totalLpTokens));
+
+//   const lpTokensToDeposit = balanceToDepositBN
+//     .multipliedBy(totalLPTokensBN)
+//     .div(initialCountBN.plus(alreadyLendBN));
+
+//   const whatValidatorWillExpect = lpTokensToDeposit
+//     .multipliedBy(initialCountBN.plus(alreadyLendBN))
+//     .div(totalLPTokensBN);
+
+//   return {
+//     depositAmount: BigInt(Math.floor(whatValidatorWillExpect.toNumber())),
+//     lpTokenMintAmount: BigInt(Math.floor(lpTokensToDeposit.toNumber())),
+//   };
+// }
+
+export function calculateLpsToBurn(
   initialCount: bigint,
   alreadyLend: bigint,
-  balanceToDeposit: bigint,
+  amountToWithdraw: bigint,
   totalLpTokens: bigint
-): LpTokenCalculation {
+): number {
   const initialCountBN = new BigNumber(Number(initialCount));
   const alreadyLendBN = new BigNumber(Number(alreadyLend));
-  const balanceToDepositBN = new BigNumber(Number(balanceToDeposit));
+  const amountToWithdrawBN = new BigNumber(Number(amountToWithdraw));
   const totalLPTokensBN = new BigNumber(Number(totalLpTokens));
 
-  const lpTokensToDeposit = balanceToDepositBN
+  const lpTokensToBurn = amountToWithdrawBN
     .multipliedBy(totalLPTokensBN)
     .div(initialCountBN.plus(alreadyLendBN));
 
-  const whatValidatorWillExpect = lpTokensToDeposit
-    .multipliedBy(initialCountBN.plus(alreadyLendBN))
-    .div(totalLPTokensBN);
-
-  return {
-    depositAmount: BigInt(Math.floor(whatValidatorWillExpect.toNumber())),
-    lpTokenMintAmount: BigInt(Math.floor(lpTokensToDeposit.toNumber())),
-  };
+  return Math.floor(lpTokensToBurn.toNumber());
 }
 
-export function calculateBalanceToDeposit(
+// export function calculateBalanceToDeposit(
+//   initialCount: bigint,
+//   alreadyLend: bigint,
+//   lpTokensToDeposit: bigint,
+//   totalLpTokens: bigint
+// ): LpTokenCalculation {
+//   const initialCountBN = new BigNumber(Number(initialCount));
+//   const alreadyLendBN = new BigNumber(Number(alreadyLend));
+//   const lpTokensToDepositBN = new BigNumber(Number(lpTokensToDeposit));
+//   const totalLPTokensBN = new BigNumber(Number(totalLpTokens));
+
+//   // Calculating balanceToDeposit
+//   const balanceToDeposit = lpTokensToDepositBN
+//     .multipliedBy(initialCountBN.plus(alreadyLendBN))
+//     .div(totalLPTokensBN);
+
+//   return {
+//     depositAmount: BigInt(Math.floor(balanceToDeposit.toNumber())),
+//     lpTokenMintAmount: BigInt(Math.floor(lpTokensToDepositBN.toNumber())),
+//   };
+// }
+
+export function calculateReceivedLptokens(
   initialCount: bigint,
   alreadyLend: bigint,
-  lpTokensToDeposit: bigint,
-  totalLpTokens: bigint
-): LpTokenCalculation {
-  const initialCountBN = new BigNumber(Number(initialCount));
-  const alreadyLendBN = new BigNumber(Number(alreadyLend));
-  const lpTokensToDepositBN = new BigNumber(Number(lpTokensToDeposit));
-  const totalLPTokensBN = new BigNumber(Number(totalLpTokens));
+  balanceToDeposit: bigint,
+  totalLpTokens: bigint,
+): number {
+  const initialCountBN = new BigNumber(Number(initialCount))
+  const alreadyLendBN = new BigNumber(Number(alreadyLend))
+  const balanceToDepositBN = new BigNumber(Number(balanceToDeposit))
+  const totalLPTokensBN = new BigNumber(Number(totalLpTokens))
 
-  // Calculating balanceToDeposit
-  const balanceToDeposit = lpTokensToDepositBN
-    .multipliedBy(initialCountBN.plus(alreadyLendBN))
-    .div(totalLPTokensBN);
+  const lpTokensToReceive = balanceToDepositBN.multipliedBy(totalLPTokensBN).div(initialCountBN.plus(alreadyLendBN))
 
-  return {
-    depositAmount: BigInt(Math.floor(balanceToDeposit.toNumber())),
-    lpTokenMintAmount: BigInt(Math.floor(lpTokensToDepositBN.toNumber())),
-  };
+  return Math.floor(lpTokensToReceive.toNumber())
 }
 
 export function findAssetQuantity(

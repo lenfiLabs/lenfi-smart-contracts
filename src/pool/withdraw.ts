@@ -8,19 +8,19 @@ import {
 } from "translucent-cardano";
 
 import {
-  calculateLpTokens,
+  calculateLpsToBurn,
   getPoolArtifacts,
   PoolArtifacts,
   toUnitOrLovelace,
   ValidatorRefs,
 } from "./../util.ts";
 
-import { LpTokenCalculation, OutputReference } from "./../types.ts";
+import { OutputReference } from "./../types.ts";
 
 import { LiquidityTokenLiquidityToken, PoolSpend } from "./../../plutus.ts";
 
 interface WithdrawArgs {
-  balanceToWithdraw: bigint;
+  amountToWithdraw: bigint;
   poolTokenName: string;
   poolStakeValidator: Validator;
 }
@@ -36,7 +36,7 @@ export function makeWithdrawal(
   continuingOutputIdx: bigint,
   {
     poolTokenName,
-    balanceToWithdraw,
+    amountToWithdraw,
     poolStakeValidator,
     poolArtifacts,
   }: WithdrawInnerArgs,
@@ -58,27 +58,26 @@ export function makeWithdrawal(
   const poolDatumMapped = poolArtifacts.poolDatumMapped;
   const poolConfigDatum = poolArtifacts.poolConfigDatum;
 
-  if (balanceToWithdraw <= poolConfigDatum.minTransition) {
+  let valueDelta = amountToWithdraw;
+
+  if (Math.abs(Number(valueDelta)) <= poolConfigDatum.minTransition) {
     throw "Withdraw amount is too small";
   }
 
   // Calculate amount of LP tokens to be minted
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  let lpsToBurn = calculateLpsToBurn(
     poolDatumMapped.balance,
     poolDatumMapped.lentOut,
-    balanceToWithdraw,
+    valueDelta,
     poolDatumMapped.totalLpTokens
   );
 
-  const depositAmount = lpTokensToDepositDetails.depositAmount + withdrawDelta;
-
-  const lpTokensToWithdraw = BigInt(lpTokensToDepositDetails.lpTokenMintAmount);
+  valueDelta += withdrawDelta;
 
   poolDatumMapped.balance =
-    poolDatumMapped.balance - depositAmount + poolConfigDatum.poolFee;
-
+    poolDatumMapped.balance - valueDelta + poolConfigDatum.poolFee;
   poolDatumMapped.totalLpTokens =
-    poolDatumMapped.totalLpTokens - lpTokensToWithdraw;
+    poolDatumMapped.totalLpTokens - BigInt(lpsToBurn);
 
   // Withdraw redeemer
 
@@ -88,7 +87,7 @@ export function makeWithdrawal(
         Continuing: [
           {
             LpAdjust: {
-              valueDelta: depositAmount * -1n,
+              valueDelta: valueDelta * -1n,
               continuingOutput: continuingOutputIdx,
             },
           },
@@ -150,7 +149,7 @@ export function makeWithdrawal(
         [toUnit(
           poolDatumMapped.params.lpToken.policyId,
           poolDatumMapped.params.lpToken.assetName
-        )]: lpTokensToWithdraw * -1n,
+        )]: BigInt(lpsToBurn) * -1n,
       },
       Data.to(lpTokenRedeemer, LiquidityTokenLiquidityToken.redeemer)
     )
@@ -165,7 +164,7 @@ export async function withdrawFromPool(
   tx: Tx,
   continuingOutputIdx: bigint,
   now: number,
-  { poolTokenName, balanceToWithdraw, poolStakeValidator }: WithdrawArgs,
+  { poolTokenName, amountToWithdraw, poolStakeValidator }: WithdrawArgs,
   { validators, deployedValidators }: ValidatorRefs,
   withdrawDelta = 0n
 ) {
@@ -182,7 +181,7 @@ export async function withdrawFromPool(
     continuingOutputIdx,
     {
       poolTokenName,
-      balanceToWithdraw,
+      amountToWithdraw,
       poolStakeValidator,
       poolArtifacts,
     },

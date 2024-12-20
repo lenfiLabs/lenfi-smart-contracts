@@ -1,24 +1,18 @@
 import {
   Data,
-  fromHex,
-  toHex,
   toUnit,
   Translucent,
   Tx,
   UTxO,
   Validator,
 } from "translucent-cardano";
-import { C } from "lucid-cardano";
 
 import {
-  calculateBalanceToDeposit,
-  calculateLpTokens,
+  calculateLpsToBurn,
   generateReceiverAddress,
   getExpectedValueMap,
   getPoolArtifacts,
-  getValueFromDatum,
   getValueFromMap,
-  MIN_ADA,
   nameFromUTxO,
   OutputValue,
   toUnitOrLovelace,
@@ -210,13 +204,21 @@ async function executeDepositOrder(
 
   const poolDatumMapped: PoolSpend["datum"] = poolArtifacts.poolDatumMapped;
 
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  // const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  //   poolDatumMapped.balance,
+  //   poolDatumMapped.lentOut,
+  //   batcherDatumMapped.order.depositAmount,
+  //   poolDatumMapped.totalLpTokens
+  // );
+
+  const lpsToBurn = calculateLpsToBurn(
     poolDatumMapped.balance,
     poolDatumMapped.lentOut,
     batcherDatumMapped.order.depositAmount,
     poolDatumMapped.totalLpTokens
   );
-  const lpTokensToDeposit = lpTokensToDepositDetails.lpTokenMintAmount;
+
+  // const lpTokensToDeposit = lpTokensToDepositDetails.lpTokenMintAmount;
 
   const batcherRedeemer: OrderContractDepositOrderContract["redeemer"] = {
     Process: {
@@ -235,7 +237,7 @@ async function executeDepositOrder(
 
   const toReceive = {
     [poolDatumMapped.params.lpToken.policyId +
-    poolDatumMapped.params.lpToken.assetName]: lpTokensToDeposit,
+    poolDatumMapped.params.lpToken.assetName]: BigInt(lpsToBurn),
   };
 
   let valueForUserToReceive: OutputValue = {};
@@ -332,6 +334,9 @@ async function executeWithdrawOrder(
       poolDatumMapped.totalLpTokens
     );
 
+
+
+    
   const batcherRedeemer: OrderContractWithdrawOrderContract["redeemer"] = {
     Process: {
       poolOref: {
@@ -399,7 +404,7 @@ async function executeWithdrawOrder(
     continuingOutputIdx,
     {
       poolTokenName,
-      balanceToWithdraw: lpTokensToDepositDetails.depositAmount,
+      amountToWithdraw: lpTokensToDepositDetails.depositAmount,
       poolStakeValidator,
       poolArtifacts,
     },

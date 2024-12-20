@@ -251,7 +251,7 @@ function testTokenScenario(
             lucid.newTx(),
             emulator.now(),
             {
-              balanceToWithdraw: 2000000n,
+              amountToWithdraw: 2000000n,
               poolTokenName,
             },
             { validators, deployedValidators }
@@ -296,7 +296,7 @@ function testTokenScenario(
             lucid.newTx(),
             emulator.now(),
             {
-              balanceToWithdraw: 2200000n,
+              amountToWithdraw: 2200000n,
               poolTokenName,
             },
             { validators, deployedValidators }
@@ -598,7 +598,7 @@ function testTokenScenario(
             lucid.newTx(),
             emulator.now(),
             {
-              balanceToWithdraw: 2000000n,
+              amountToWithdraw: 2000000n,
               poolTokenName,
             },
             { validators, deployedValidators }

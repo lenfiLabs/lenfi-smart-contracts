@@ -384,7 +384,7 @@ function testTokenScenario(
           0n,
           emulator.now(),
           {
-            balanceToWithdraw: 500n * 100000n,
+            amountToWithdraw: 500n * 100000n,
             poolTokenName: creationResult.poolId,
             poolStakeValidator: creationResult.stakingValidator,
           },
@@ -392,7 +392,7 @@ function testTokenScenario(
         ).then(quickSubmitBuilder(emulator));
       });
 
-      it("Should not withdraw: depositing less than needed", async () => {
+      it("Should not withdraw: Withdrawing more than allowed", async () => {
         try {
           await withdrawFromPool(
             lucid,
@@ -400,31 +400,31 @@ function testTokenScenario(
             0n,
             emulator.now(),
             {
-              balanceToWithdraw: 500n * 100000n,
+              amountToWithdraw: 500n * 100000n,
               poolTokenName: creationResult.poolId,
               poolStakeValidator: creationResult.stakingValidator,
             },
             { validators, deployedValidators },
-            -500n
+            500n
           ).then(quickSubmitBuilder(emulator));
         } catch (e) {
           expect(e).toContain("check_delta_amount ? False");
         }
       });
 
-      it("Should withdraw: depositing more than needed", async () => {
+      it("Should withdraw: Withdrawing less than you can", async () => {
         await withdrawFromPool(
           lucid,
           lucid.newTx(),
           0n,
           emulator.now(),
           {
-            balanceToWithdraw: 500n * 100000n,
+            amountToWithdraw: 500n * 100000n,
             poolTokenName: creationResult.poolId,
             poolStakeValidator: creationResult.stakingValidator,
           },
           { validators, deployedValidators },
-          500n
+          -500n
         ).then(quickSubmitBuilder(emulator));
       });
 
@@ -547,7 +547,7 @@ function testTokenScenario(
           0n,
           emulator.now(),
           {
-            balanceToWithdraw: 200n * 100000n,
+            amountToWithdraw: 200n * 100000n,
             poolTokenName: creationResult.poolId,
             poolStakeValidator: creationResult.stakingValidator,
           },
