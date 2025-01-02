@@ -7,7 +7,7 @@ import {
   Validator,
 } from "translucent-cardano";
 import {
-  calculateLpTokens,
+  calculateReceivedLptokens,
   getOutputReference,
   getPoolArtifacts,
   PoolArtifacts,
@@ -61,26 +61,24 @@ export function makeDeposit(
     throw "Deposit amount is too small";
   }
 
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  let lpTokenToReceive: number = calculateReceivedLptokens(
     poolDatumMapped.balance,
     poolDatumMapped.lentOut,
     balanceToDeposit,
     poolDatumMapped.totalLpTokens
   );
 
-  const lpTokensToDeposit =
-    lpTokensToDepositDetails.lpTokenMintAmount + lpTokensDelta;
-  if (lpTokensToDepositDetails.lpTokenMintAmount > balanceToDeposit) {
-    throw "User wants more LPs than allowed";
-  }
+  lpTokenToReceive += Number(lpTokensDelta);
+  // if (lpTokenToReceive > balanceToDeposit) {
+  //   throw "User wants more LPs than allowed";
+  // }
 
   poolDatumMapped.balance =
     poolDatumMapped.balance +
-    lpTokensToDepositDetails.depositAmount +
-    poolConfigDatum.poolFee;
-
+    balanceToDeposit +
+    poolArtifacts.poolConfigDatum.poolFee;
   poolDatumMapped.totalLpTokens =
-    poolDatumMapped.totalLpTokens + lpTokensToDeposit;
+    poolDatumMapped.totalLpTokens + BigInt(lpTokenToReceive);
 
   const poolRedeemer: PoolSpend["redeemer"] = {
     wrapper: {
@@ -88,7 +86,7 @@ export function makeDeposit(
         Continuing: [
           {
             LpAdjust: {
-              valueDelta: lpTokensToDepositDetails.depositAmount,
+              valueDelta: balanceToDeposit,
               continuingOutput: continuingOutputIdx,
             },
           },
@@ -132,7 +130,7 @@ export function makeDeposit(
     .attachMintingPolicy(lpTokenPolicy)
     .mintAssets(
       {
-        [toUnit(lpTokenPolicyId, poolTokenName)]: BigInt(lpTokensToDeposit),
+        [toUnit(lpTokenPolicyId, poolTokenName)]: BigInt(lpTokenToReceive),
       },
       Data.to(lpTokenRedeemer, LiquidityTokenLiquidityToken.redeemer)
     )

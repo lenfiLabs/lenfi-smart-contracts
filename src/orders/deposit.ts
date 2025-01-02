@@ -5,7 +5,7 @@ import {
   Tx,
 } from "translucent-cardano";
 import {
-  calculateLpTokens,
+  calculateReceivedLptokens,
   getPoolArtifacts,
   getValidityRange,
   OutputValue,
@@ -13,7 +13,7 @@ import {
   updateUserValue,
   ValidatorRefs,
 } from "./../../src/util.ts";
-import { LpTokenCalculation, ValidityRange } from "./../../src/types.ts";
+import {  ValidityRange } from "./../../src/types.ts";
 import { OrderContractDepositOrderContract } from "./../../plutus.ts";
 
 interface BatcherDepositArgs {
@@ -41,20 +41,16 @@ export async function placeDepositOrder(
   );
   const poolDatumMapped = poolArtifacts.poolDatumMapped;
 
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+  const lpTokenToReceive: number = calculateReceivedLptokens(
     poolDatumMapped.balance,
     poolDatumMapped.lentOut,
     balanceToDeposit,
-    poolDatumMapped.totalLpTokens
-  );
+    poolDatumMapped.totalLpTokens,
+  )
 
-  const lpTokensToDeposit = lpTokensToDepositDetails.lpTokenMintAmount;
+  poolDatumMapped.balance = poolDatumMapped.balance + balanceToDeposit + poolArtifacts.poolConfigDatum.poolFee
+  poolDatumMapped.totalLpTokens = poolDatumMapped.totalLpTokens + BigInt(lpTokenToReceive)
 
-  poolDatumMapped.balance =
-    poolDatumMapped.balance + lpTokensToDepositDetails.depositAmount;
-
-  poolDatumMapped.totalLpTokens =
-    poolDatumMapped.totalLpTokens + lpTokensToDeposit;
 
   const walletAddress = await lucid.wallet.address();
   const walletDetails = getAddressDetails(walletAddress);

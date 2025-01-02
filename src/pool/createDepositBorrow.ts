@@ -13,7 +13,7 @@ import {
   ValidityRange,
 } from "../types.ts";
 import {
-  calculateLpTokens,
+  calculateReceivedLptokens,
   getOutputReference,
   nameFromUTxO,
   PoolArtifacts,
@@ -457,7 +457,7 @@ export async function makeCreateDepositBorrow(
   });
 
   // DEPOSIT STUFF
-  const anDepositAmount = 50000000n;
+  const secondDepositAmount = 50000000n;
   const depositRewardsAddress =
     lucid.utils.validatorToRewardAddress(poolStakeValidator2);
 
@@ -473,32 +473,30 @@ export async function makeCreateDepositBorrow(
   );
 
   const depositPoolDatumMapped = depositPoolArtifacts.poolDatumMapped;
-  const depositPoolConfigDatum = depositPoolArtifacts.poolConfigDatum;
 
   const depositLpTokenPolicy = new LiquidityTokenLiquidityToken(
     validators.poolScriptHash,
     poolTokenName2
   );
 
-  const lpTokensToDepositDetails: LpTokenCalculation = calculateLpTokens(
+
+  const lpTokenToReceive: number = calculateReceivedLptokens(
     depositPoolDatumMapped.balance,
     depositPoolDatumMapped.lentOut,
-    anDepositAmount,
+    secondDepositAmount,
     depositPoolDatumMapped.totalLpTokens
   );
 
-  const lpTokensToDeposit = lpTokensToDepositDetails.lpTokenMintAmount;
-  if (lpTokensToDepositDetails.lpTokenMintAmount > anDepositAmount) {
+  if (lpTokenToReceive > secondDepositAmount) {
     throw "User wants more LPs than allowed";
   }
-
   depositPoolDatumMapped.balance =
-    depositPoolDatumMapped.balance +
-    lpTokensToDepositDetails.depositAmount +
-    depositPoolConfigDatum.poolFee;
+  depositPoolDatumMapped.balance +
+    secondDepositAmount +
+    poolArtifacts.poolConfigDatum.poolFee;
 
-  depositPoolDatumMapped.totalLpTokens =
-    depositPoolDatumMapped.totalLpTokens + lpTokensToDeposit;
+    depositPoolDatumMapped.totalLpTokens =
+    depositPoolDatumMapped.totalLpTokens + BigInt(lpTokenToReceive);
 
   const depositPoolRedeemer: PoolSpend["redeemer"] = {
     wrapper: {
@@ -506,7 +504,7 @@ export async function makeCreateDepositBorrow(
         Continuing: [
           {
             LpAdjust: {
-              valueDelta: lpTokensToDepositDetails.depositAmount,
+              valueDelta: secondDepositAmount,
               continuingOutput: continuingOutputIdx + 4n,
             },
           },
@@ -547,7 +545,7 @@ export async function makeCreateDepositBorrow(
     .mintAssets(
       {
         [toUnit(depositLpTokenPolicyId, poolTokenName2)]:
-          BigInt(lpTokensToDeposit),
+          BigInt(lpTokenToReceive),
       },
       Data.to(depositLpTokenRedeemer, LiquidityTokenLiquidityToken.redeemer)
     );

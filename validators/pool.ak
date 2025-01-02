@@ -86,7 +86,6 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
         let expected_value_with_input =
           merge(pool_input_value, expected_change_value)
 
-        
         let dust_attack_check =
           without_lovelace(expected_value_with_input) == without_lovelace(
             pool_output.value,
@@ -169,31 +168,39 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
                 params.lp_token.policy_id,
                 params.lp_token.asset_name,
               )
+
             expect Some(owned_proportion) =
               lp_token_delta * ( balance + lent_out )
                 |> rational.new(total_lp_tokens)
 
             let sign_check = or {
+                // Withdraw scenario
                 and {
                   value_delta < 0,
                   lp_token_delta < 0,
                   value_delta * -1 >= min_transition,
-                  lp_token_delta < total_lp_tokens,
+                  lp_token_delta * -1 < total_lp_tokens,
                 },
+                // ensure not withdrawing more than existing supply
+                // Deposit scenario
                 and {
                   value_delta > 0,
                   lp_token_delta > 0,
                   value_delta >= min_transition,
                 },
               }
+
             let notzero =
               rational.compare(owned_proportion, rational.from_int(0)) != Equal
 
+            // When withdrawing owned_proportion means max you can withdraw.
+            // When depositing owned_proportion means min you can deposit.
+
             let check_delta_amount =
               if value_delta < 0 {
-                rational.truncate(owned_proportion) >= value_delta
+                value_delta * -1 <= rational.truncate(owned_proportion) * -1
               } else {
-                rational.truncate(owned_proportion) <= value_delta
+                value_delta >= rational.truncate(owned_proportion)
               }
 
             let value_delta_check = and {
@@ -262,7 +269,6 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
             }
           }
           pool.CloseLoan { loan_amount, repay_amount, continuing_output } -> {
-            
             let loan_amt_check = loan_amount > 0
             let repay_amt_check = repay_amount > loan_amount
             let transition_validator =
@@ -308,69 +314,66 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
       purpose,
     } = ctx
 
-    {
-      expect Mint(own_script) = purpose
-      let pool_control_credential = ScriptCredential(own_script)
-      let mint = from_minted_value(mint)
+    expect Mint(own_script) = purpose
+    let pool_control_credential = ScriptCredential(own_script)
+    let mint = from_minted_value(mint)
 
-      when redeemer is {
-        pool.MintPoolNFT(pool_mint_details) -> {
-          let pool_mint_details: pool.PoolCreateDetails = pool_mint_details
-          let pool_output =
-            outputs
-              |> list.at(pool_mint_details.output_index)
-          expect Some(Output {
-            address: Address(out_credential, Some(out_stake_credential)),
-            value,
-            ..
-          }) = pool_output
-          expect Inline(stake_cred) = out_stake_credential
-          expect ScriptCredential(stake_hash) = stake_cred
+    when redeemer is {
+      pool.MintPoolNFT(pool_mint_details) -> {
+        let pool_mint_details: pool.PoolCreateDetails = pool_mint_details
+        let pool_output =
+          outputs
+            |> list.at(pool_mint_details.output_index)
+        expect Some(Output {
+          address: Address(out_credential, Some(out_stake_credential)),
+          value,
+          ..
+        }) = pool_output
+        expect Inline(stake_cred) = out_stake_credential
+        expect ScriptCredential(stake_hash) = stake_cred
 
-          expect Some(stake_validator_redeemer) =
-            dict.get(
-              redeemers,
-              Publish(
-                CredentialDelegation(
-                  out_stake_credential,
-                  pool_mint_details.initial_pool_delegation,
-                ),
+        expect Some(stake_validator_redeemer) =
+          dict.get(
+            redeemers,
+            Publish(
+              CredentialDelegation(
+                out_stake_credential,
+                pool_mint_details.initial_pool_delegation,
               ),
-            )
-          expect withdraw_validator_redeemer: pool_stake.StakeRedeemer =
-            stake_validator_redeemer
+            ),
+          )
+        expect withdraw_validator_redeemer: pool_stake.StakeRedeemer =
+          stake_validator_redeemer
 
-          expect pool_stake.CreatePool(_withdraw_validator_oref) =
-            withdraw_validator_redeemer
-          let correct_credential = out_credential == pool_control_credential
-          
-          // Pool NFT name is stake_hash
-          let correct_quantity_output =
-            quantity_of(value, own_script, stake_hash) == 1
+        expect pool_stake.CreatePool(_withdraw_validator_oref) =
+          withdraw_validator_redeemer
+        let correct_credential = out_credential == pool_control_credential
+        // Pool NFT name is stake_hash
+        let correct_quantity_output =
+          quantity_of(value, own_script, stake_hash) == 1
 
-          expect [(_stake_hash, 1)] = tokens(mint, own_script) |> dict.to_list
+        expect [(_stake_hash, 1)] = tokens(mint, own_script) |> dict.to_list
 
-          let no_dust_attack =
-            when flatten(value) is {
-              [(_, _, _)] -> True
-              [(_, _, _), (_, _, _)] -> True
-              [(_, _, _), (_, _, _), (_, _, _)] -> True
-              _ -> False
-            }
-          and {
-            correct_credential,
-            correct_quantity_output,
-            no_dust_attack,
+        let no_dust_attack =
+          when flatten(value) is {
+            [(_, _, _)] -> True
+            [(_, _, _), (_, _, _)] -> True
+            [(_, _, _), (_, _, _), (_, _, _)] -> True
+            _ -> False
           }
+        and {
+          correct_credential,
+          correct_quantity_output,
+          no_dust_attack,
         }
+      }
 
-        // Pool NFT is locked in Pool Validator. You can't easily burn it.
-        // Should expect only one policy mint and it's -1
-        pool.BurnPoolNFT(burn_tn) -> {
-          expect [(burnt_nft_name, -1)] =
-            dict.to_list(value.tokens(mint, own_script))
-          burn_tn == burnt_nft_name
-        }
+      // Pool NFT is locked in Pool Validator. You can't easily burn it.
+      // Should expect only one policy mint and it's -1
+      pool.BurnPoolNFT(burn_tn) -> {
+        expect [(burnt_nft_name, -1)] =
+          dict.to_list(value.tokens(mint, own_script))
+        burn_tn == burnt_nft_name
       }
     }
   }
