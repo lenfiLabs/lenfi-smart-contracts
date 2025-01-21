@@ -1,10 +1,10 @@
 use aada/types/pool
-use aiken/dict
-use aiken/list
-use aiken/transaction.{InlineDatum, Mint, OutputReference, ScriptContext}
-use aiken/transaction/value.{flatten, from_minted_value, quantity_of, tokens}
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/assets.{PolicyId, flatten, quantity_of, tokens}
+use cardano/transaction.{InlineDatum, Mint, OutputReference, Transaction}
 
-type TokenRedeemer {
+pub type TokenRedeemer {
   TransitionPool {
     pool_oref: OutputReference,
     continuing_output: pool.OutputIndex,
@@ -15,17 +15,16 @@ type TokenRedeemer {
 
 // Liquidity token is a representation of the pool liquidity.
 
-validator(pool_hash: ByteArray, token_name: ByteArray) {
-  fn liquidity_token(redeemer: TokenRedeemer, ctx: ScriptContext) {
-    expect Mint(own_policy) = ctx.purpose
+validator liquidity_tokenv(pool_hash: ByteArray, token_name: ByteArray) {
+  mint(redeemer: TokenRedeemer, own_policy: PolicyId, transaction: Transaction) {
     when redeemer is {
       // Deposit or Withdraw redeemer
       TransitionPool { pool_oref, continuing_output } -> {
         expect Some(pool_input) =
-          ctx.transaction.inputs
+          transaction.inputs
             |> list.find(fn(inp) { inp.output_reference == pool_oref })
         expect Some(pool_output) =
-          ctx.transaction.outputs |> list.at(continuing_output)
+          transaction.outputs |> list.at(continuing_output)
         expect InlineDatum(input_datum) = pool_input.output.datum
         expect input_datum: pool.Datum = input_datum
         expect InlineDatum(output_datum) = pool_output.datum
@@ -49,9 +48,9 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
             id,
           ) == 1
 
-        expect [(lp_token_name, lp_tokens_amount)] =
-          tokens(from_minted_value(ctx.transaction.mint), own_policy)
-            |> dict.to_list()
+        expect [Pair(lp_token_name, lp_tokens_amount)] =
+          tokens(transaction.mint, own_policy)
+            |> dict.to_pairs()
 
         // LP token name must match LP token name which is also pool Stake-creds hash
         let valid_lp_token_name =
@@ -68,7 +67,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
       }
       DestroyPool { pool_oref } -> {
         expect Some(pool_input) =
-          ctx.transaction.inputs
+          transaction.inputs
             |> list.find(fn(inp) { inp.output_reference == pool_oref })
         expect InlineDatum(input_datum) = pool_input.output.datum
         expect input_datum: pool.Datum = input_datum
@@ -79,11 +78,7 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
           input_datum.params.pool_nft_name == token_name
 
         let actual_tokens_minted =
-          quantity_of(
-            from_minted_value(ctx.transaction.mint),
-            own_policy,
-            token_name,
-          )
+          quantity_of(transaction.mint, own_policy, token_name)
 
         let tokens_mint_check =
           actual_tokens_minted + input_datum.total_lp_tokens == 0
@@ -96,13 +91,14 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
       }
       CreatePool { produced_output } -> {
         expect Some(pool_output) =
-          ctx.transaction.outputs |> list.at(produced_output)
+          transaction.outputs |> list.at(produced_output)
         expect InlineDatum(output_datum) = pool_output.datum
         expect output_datum: pool.Datum = output_datum
-        let mint = from_minted_value(ctx.transaction.mint)
+        let mint = transaction.mint
 
         // Expects only one tokenName to be minted
-        expect [(pool_token_name, 1)] = dict.to_list(tokens(mint, pool_hash))
+        expect [Pair(pool_token_name, 1)] =
+          dict.to_pairs(tokens(mint, pool_hash))
 
         // Doing an extra check for all the name matching
         let correct_pooltoken_name = and {
@@ -139,5 +135,9 @@ validator(pool_hash: ByteArray, token_name: ByteArray) {
         }
       }
     }
+  }
+
+  else(_) {
+    fail
   }
 }

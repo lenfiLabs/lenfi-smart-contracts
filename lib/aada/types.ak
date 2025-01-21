@@ -1,4 +1,4 @@
-use aiken/transaction/value.{AssetName, PolicyId}
+use cardano/assets.{AssetName, PolicyId}
 
 /// Consider: wrapping this further for safety.
 pub type POSIXTime =

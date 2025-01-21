@@ -2,40 +2,35 @@ use aada/finance
 use aada/nft.{CollateralNFTRedeemerLists, MintNFTElem}
 use aada/types/pool
 use aada/types/pool_stake
-use aiken/dict
-use aiken/list
+use aiken/collection/dict
+use aiken/collection/list
 use aiken/math/rational
-use aiken/transaction.{
+use cardano/address.{Address, Inline, ScriptCredential}
+use cardano/assets.{
+  PolicyId, flatten, from_asset, merge, quantity_of, tokens, without_lovelace,
+}
+use cardano/certificate.{DelegateCredential}
+use cardano/transaction.{
   InlineDatum, Input, Mint, Output, Publish, ScriptContext, Spend, Transaction,
 }
-use aiken/transaction/certificate.{CredentialDelegation}
-use aiken/transaction/credential.{Address, Inline, ScriptCredential}
-use aiken/transaction/value.{
-  PolicyId, flatten, from_asset, from_minted_value, merge, quantity_of, tokens,
-  without_lovelace,
-}
 
-validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
-  fn spend(datum: pool.Datum, redeemer: pool.Redeemer, ctx: ScriptContext) {
+validator poolv(
+  delegator_nft_policy: PolicyId,
+  pool_config_script_hash: PolicyId,
+) {
+  spend(
+    datum: pool.Datum,
+    redeemer: pool.Redeemer,
+    own_ref: OutputReference,
+    transaction: Transaction,
+  ) {
     let pool.Datum { params, balance, lent_out, total_lp_tokens } = datum
-    let ScriptContext {
-      transaction: Transaction {
-        inputs,
-        mint,
-        redeemers,
-        reference_inputs,
-        outputs,
-        ..
-      },
-      purpose,
-    } = ctx
-    let mint = from_minted_value(mint)
-    expect Spend(output_ref) = purpose
+    let Transaction { inputs, mint, redeemers, reference_inputs, outputs, .. } =
+      transaction
     expect Some(Input {
       output: Output { address: this_address, value: pool_input_value, .. },
       ..
-    }) =
-      list.find(inputs, fn(inp) -> Bool { inp.output_reference == output_ref })
+    }) = list.find(inputs, fn(inp) -> Bool { inp.output_reference == own_ref })
     expect ScriptCredential(this_script_hash) = this_address.payment_credential
     let pool_nft_policy: PolicyId = this_script_hash
 
@@ -195,7 +190,6 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
 
             // When withdrawing owned_proportion means max you can withdraw.
             // When depositing owned_proportion means min you can deposit.
-
             let check_delta_amount =
               if value_delta < 0 {
                 value_delta * -1 <= rational.truncate(owned_proportion) * -1
@@ -208,11 +202,13 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
                 notzero,
               }
             let transition_validator =
-              fn(balance_delta, lent_delta, tokens_delta) { and {
+              fn(balance_delta, lent_delta, tokens_delta) {
+                and {
                   balance_delta == pool_fee + value_delta,
                   lent_delta == 0,
                   tokens_delta == lp_token_delta,
-                } }
+                }
+              }
             let valid_transition =
               continuing_output
                 |> validate_transition(transition_validator)
@@ -245,19 +241,21 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
 
             expect ScriptCredential(collateral_policy) =
               params.collateral_address.payment_credential
+
             expect Some(collateral_mint_redeemer) =
               redeemers |> dict.get(Mint(collateral_policy))
+
             expect collateral_mint_redeemer: CollateralNFTRedeemerLists =
               collateral_mint_redeemer
 
             let valid_collateral_exists =
               collateral_mint_redeemer.mints
                 |> list.any(
-                     fn(el) {
-                       let MintNFTElem(pool_utxo, _) = el
-                       pool_utxo == output_ref
-                     },
-                   )
+                    fn(el) {
+                      let MintNFTElem(pool_utxo, _) = el
+                      pool_utxo == own_ref
+                    },
+                  )
             and {
               loan_is_positive?,
               interest_rate_is_positive?,
@@ -272,11 +270,13 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
             let loan_amt_check = loan_amount > 0
             let repay_amt_check = repay_amount > loan_amount
             let transition_validator =
-              fn(balance_delta, lent_delta, tokens_delta) { and {
+              fn(balance_delta, lent_delta, tokens_delta) {
+                and {
                   balance_delta == pool_fee + repay_amount,
                   lent_delta == -loan_amount,
                   tokens_delta == 0,
-                } }
+                }
+              }
             let valid_transition =
               continuing_output
                 |> validate_transition(transition_validator)
@@ -290,11 +290,13 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
           pool.PayFee { fee, continuing_output } -> {
             let valid_minimum_amount = fee > min_fee
             let transition_validator =
-              fn(balance_delta, lent_value_delta, tokens_mint_delta) { and {
+              fn(balance_delta, lent_value_delta, tokens_mint_delta) {
+                and {
                   balance_delta == fee,
                   lent_value_delta == 0,
                   tokens_mint_delta == 0,
-                } }
+                }
+              }
             let valid_transition =
               continuing_output
                 |> validate_transition(transition_validator)
@@ -308,7 +310,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
     }
   }
 
-  fn mint(redeemer: pool.PoolNFTAction, ctx: ScriptContext) -> Bool {
+  mint(redeemer: pool.PoolNFTAction, ctx: ScriptContext) {
     let ScriptContext {
       transaction: Transaction { outputs, mint, redeemers, .. },
       purpose,
@@ -316,7 +318,6 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
 
     expect Mint(own_script) = purpose
     let pool_control_credential = ScriptCredential(own_script)
-    let mint = from_minted_value(mint)
 
     when redeemer is {
       pool.MintPoolNFT(pool_mint_details) -> {
@@ -336,7 +337,7 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
           dict.get(
             redeemers,
             Publish(
-              CredentialDelegation(
+              DelegateCredential(
                 out_stake_credential,
                 pool_mint_details.initial_pool_delegation,
               ),
@@ -376,5 +377,9 @@ validator(delegator_nft_policy: PolicyId, pool_config_script_hash: PolicyId) {
         burn_tn == burnt_nft_name
       }
     }
+  }
+
+  else(_) {
+    fail
   }
 }

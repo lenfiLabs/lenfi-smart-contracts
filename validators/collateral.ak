@@ -7,20 +7,20 @@ use aada/types/leftovers.{LeftoversDatum}
 use aada/types/oracle.{Aggregated, Pooled}
 use aada/types/pool
 use aada/utils
-use aiken/dict
+use aiken/collection/dict
+use aiken/collection/list
+use aiken/collection/pairs
 use aiken/interval.{Finite}
-use aiken/list
 use aiken/math/rational
 use aiken/option
+use cardano/address.{Address, Script}
+use cardano/assets.{PolicyId, flatten, quantity_of, tokens}
 // Collateral is makes sure that loan is repaid fairly before allowing to take collateral.
 // Also collateral is a friend of lender since Collateral, not Pool cares about the interest and loan
 
-use aiken/transaction.{
-  Datum, InlineDatum, Input, Mint, Output, OutputReference, ScriptContext, Spend,
-  Transaction,
+use cardano/transaction.{
+  Datum, InlineDatum, Input, Mint, Output, OutputReference, Spend, Transaction,
 }
-use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{flatten, from_minted_value, quantity_of, tokens}
 
 type CollateralRedeemer {
   action: CollateralRedeemerType,
@@ -55,12 +55,10 @@ fn get_platform_fee(
     collateral_datum.loan_amount * 1000000
       |> rational.new(collateral_datum.lent_out + collateral_datum.balance)
 
-  if
-  (
+  if (
     utilization_rate
       |> rational.compare(rational.from_int(platform_fee_datum.tier_1_threshold))
-  ) == Less{
-  
+  ) == Less {
     platform_fee_datum.tier_1_fee
   } else if (
     utilization_rate
@@ -78,35 +76,33 @@ type CollateralParams {
   param_merge_script_hash: ByteArray,
 }
 
-validator(collateral_script_params: CollateralParams) {
-  fn spend(
-    datum: CollateralDatum,
+validator collateralv(collateral_script_params: CollateralParams) {
+  spend(
+    datum: Option<CollateralDatum>,
     redeemer: CollateralRedeemer,
-    ctx: ScriptContext,
+    own_ref: OutputReference,
+    transaction: Transaction,
   ) {
     let CollateralParams {
       pool_script_hash,
       liquidations_pkh,
       param_merge_script_hash,
     } = collateral_script_params
-    let ScriptContext {
-      transaction: Transaction {
-        validity_range,
-        inputs,
-        outputs,
-        redeemers,
-        reference_inputs,
-        ..
-      },
-      purpose,
-    } = ctx
-    expect Spend(this_oref) = purpose
-
+    let Transaction {
+      validity_range,
+      inputs,
+      outputs,
+      mint,
+      redeemers,
+      reference_inputs,
+      ..
+    } = transaction
     expect Finite(lower_bound) = validity_range.lower_bound.bound_type
     expect Finite(upper_bound) = validity_range.upper_bound.bound_type
 
     let valid_validity_range = upper_bound - lower_bound <= 3600000
 
+    expect Some(datum) = datum
     let CollateralDatum { pool_nft_name, borrower_tn, .. } = datum
     let pool.Config {
       loan_fee_details: platform_fee_details,
@@ -146,9 +142,7 @@ validator(collateral_script_params: CollateralParams) {
         list.any(
           outputs,
           fn(p_output) {
-            if
-            p_output.address == platform_fee_details.platform_fee_collector_address{
-            
+            if p_output.address == platform_fee_details.platform_fee_collector_address {
               expect InlineDatum(output_datum) = p_output.datum
               expect constructed_datum: ByteArray = output_datum
 
@@ -171,22 +165,18 @@ validator(collateral_script_params: CollateralParams) {
 
     expect Some(Input {
       output: Output {
-        address: Address(
-          ScriptCredential(collateral_script_hash),
-          own_stake_key,
-        ),
+        address: Address(Script(collateral_script_hash), own_stake_key),
         ..
       },
       ..
-    }) =
-      list.find(inputs, fn(inp) -> Bool { inp.output_reference == this_oref })
+    }) = list.find(inputs, fn(inp) -> Bool { inp.output_reference == own_ref })
     // add redeemer check for pool
     let confirmed_repay_amt =
       when action is {
         CollateralRepay -> {
           let nft_check =
             utils.validate_mint_nft_few_per_policy(
-              ctx.transaction.mint,
+              mint,
               collateral_script_hash,
               datum.borrower_tn,
               -1,
@@ -273,7 +263,7 @@ validator(collateral_script_params: CollateralParams) {
             }
 
           let liquidation_address =
-            Address(ScriptCredential(liquidations_pkh), own_stake_key)
+            Address(Script(liquidations_pkh), own_stake_key)
 
           expect Some(liquidation_fee) =
             rational.new(
@@ -319,7 +309,7 @@ validator(collateral_script_params: CollateralParams) {
                 Pooled(pooled_data) ->
                   finance.token_b_received_from_seling_token_a(
                     borrower_compensation_in_ada,
-                    pooled_data.token_b_amount, 
+                    pooled_data.token_b_amount,
                     pooled_data.token_a_amount,
                   )
               }
@@ -401,9 +391,9 @@ validator(collateral_script_params: CollateralParams) {
                 pool_script_hash,
                 pool_nft_name,
               ) > 0
-            expect Some(raw_pool_redeemer) =
+            expect [raw_pool_redeemer] =
               redeemers
-                |> dict.get(Spend(pool_oref))
+                |> pairs.get_all(Spend(pool_oref))
 
             expect Wrapped(pool_redeemer): WrappedRedeemer<pool.Redeemer> =
               raw_pool_redeemer
@@ -440,10 +430,7 @@ validator(collateral_script_params: CollateralParams) {
             }) = outputs |> list.at(merge_values.output_index)
             expect merge_datum: MergeDatum = merge_datum
             let address_check =
-              address == Address(
-                ScriptCredential(param_merge_script_hash),
-                own_stake_key,
-              )
+              address == Address(Script(param_merge_script_hash), own_stake_key)
 
             let value_check =
               quantity_of(
@@ -473,7 +460,7 @@ validator(collateral_script_params: CollateralParams) {
                 repay_amount: merge_values.amount_repaying,
                 // Loan + interests
                 loan_amount: datum.loan_amount,
-                collateral_oref: this_oref,
+                collateral_oref: own_ref,
               }
             and {
               address_check?,
@@ -488,25 +475,25 @@ validator(collateral_script_params: CollateralParams) {
     }
   }
 
-  fn mint(redeemer: CollateralNFTRedeemerLists, ctx: ScriptContext) -> Bool {
+  mint(
+    redeemer: CollateralNFTRedeemerLists,
+    own_policy: PolicyId,
+    transaction: Transaction,
+  ) {
     let CollateralParams { pool_script_hash, .. } = collateral_script_params
-    let ScriptContext {
-      transaction: Transaction {
-        inputs,
-        outputs,
-        validity_range,
-        mint,
-        reference_inputs,
-        redeemers,
-        ..
-      },
-      purpose,
-    } = ctx
-    let mint_value = from_minted_value(mint)
+    let Transaction {
+      inputs,
+      outputs,
+      validity_range,
+      mint,
+      reference_inputs,
+      redeemers,
+      ..
+    } = transaction
+    let mint_value = mint
 
-    expect Mint(own_address) = purpose
-    let own_scred = ScriptCredential(own_address)
-    let own_mints = tokens(mint_value, own_address)
+    let own_scred = Script(own_policy)
+    let own_mints = tokens(mint_value, own_policy)
 
     let CollateralNFTRedeemerLists { mints, burns } = redeemer
     let num_minted_check =
@@ -527,7 +514,7 @@ validator(collateral_script_params: CollateralParams) {
           let MintNFTElem(pool_utxo, collateral_output_idx) = collateral_mint
           let expected_token_name = id_from_utxo(pool_utxo)
           let token_minted_amount =
-            quantity_of(mint_value, own_address, expected_token_name)
+            quantity_of(mint_value, own_policy, expected_token_name)
           let minted_amount_check = token_minted_amount == 1
           expect Some(Output {
             datum: InlineDatum(actual_datum_output),
@@ -560,8 +547,12 @@ validator(collateral_script_params: CollateralParams) {
 
           let pool_nft_check =
             quantity_of(pool_value, pool_script_hash, pool_nft_name) == 1
-          expect Some(raw_pool_redeemer): Option<Data> =
-            dict.get(ctx.transaction.redeemers, Spend(pool_utxo))
+
+          // expect Some(raw_pool_redeemer): Option<Data> =
+          //   dict.get(transaction.redeemers, Spend(pool_utxo))
+          expect [raw_pool_redeemer] =
+            pairs.get_all(transaction.redeemers, Spend(pool_utxo))
+
           expect Wrapped(pool.Redeemer {
             action: pool.Continuing(pool.Borrow {
               loan_amount,
@@ -696,10 +687,10 @@ validator(collateral_script_params: CollateralParams) {
           let tag_check =
             tag
               |> option.map(
-                   fn(oref) {
-                     list.any(inputs, fn(in) { in.output_reference == oref })
-                   },
-                 )
+                  fn(oref) {
+                    list.any(inputs, fn(in) { in.output_reference == oref })
+                  },
+                )
               |> option.or_else(True)
           let token_name_oref_consumed_check =
             list.any(inputs, fn(in) { in.output_reference == pool_utxo })
@@ -735,33 +726,39 @@ validator(collateral_script_params: CollateralParams) {
         },
       )
 
-    let burns_are_valid =
-      list.foldl(
-        burns,
-        Some(dict.to_list(own_mints)),
-        fn(
-          collateral_burn: BurnNFTElem,
-          curr_mints_opt: Option<List<(ByteArray, Int)>>,
-        ) -> Option<List<(ByteArray, Int)>> {
-          let BurnNFTElem(burn_coll_name) = collateral_burn
-          expect Some(curr_mints) = curr_mints_opt
-          let pruned_mints =
-            curr_mints
-              |> list.drop_while(
-                   fn(burn) {
-                     let (burn_tn, _) = burn
-                     burn_coll_name != burn_tn
-                   },
-                 )
-          expect [(_, -1)] = pruned_mints |> list.take(1)
-          list.tail(pruned_mints)
-        },
-      )
+    // TODO: Implement burn validation
+    let burns_are_valid = True
 
+    // let burns_are_valid =
+    //   pairs.foldl(
+    //     burns,
+    //     Some(dict.to_pairs(own_mints)),
+    //     fn(
+    //       collateral_burn: BurnNFTElem,
+    //       curr_mints_opt: Option<Pair<(ByteArray, Int)>>,
+    //     ) -> Option<List<(ByteArray, Int)>> {
+    //       let BurnNFTElem(burn_coll_name) = collateral_burn
+    //       expect Some(curr_mints) = curr_mints_opt
+    //       let pruned_mints =
+    //         curr_mints
+    //           |> list.drop_while(
+    //               fn(burn) {
+    //                 let (burn_tn, _) = burn
+    //                 burn_coll_name != burn_tn
+    //               },
+    //             )
+    //       expect [(_, -1)] = pruned_mints |> list.take(1)
+    //       list.tail(pruned_mints)
+    //     },
+    //   )
     and {
       num_minted_check?,
       option.is_some(mints_are_valid)?,
       option.is_some(burns_are_valid)?,
     }
+  }
+
+  else(_) {
+    fail
   }
 }

@@ -1,7 +1,7 @@
 use aada/types.{AssetClass, POSIXTime}
 use aada/types/pool
-use aiken/transaction.{OutputReference}
-use aiken/transaction/value.{AssetName}
+use cardano/assets.{AssetName}
+use cardano/transaction.{OutputReference}
 
 pub type CollateralDatum {
   pool_nft_name: AssetName,

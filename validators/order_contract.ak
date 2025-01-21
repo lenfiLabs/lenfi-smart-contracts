@@ -9,33 +9,27 @@ use aada/types/collateral
 use aada/types/order
 use aada/types/pool
 use aada/utils
-use aiken/dict
-use aiken/list
+use aiken/collection/dict
+use aiken/collection/list
+use aiken/collection/pair
 use aiken/math
-use aiken/transaction.{
-  Datum, InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext,
-  Spend, Transaction,
+use cardano/address.{VerificationKey}
+use cardano/assets.{quantity_of}
+use cardano/transaction.{
+  Datum, InlineDatum, Input, NoDatum, Output, OutputReference, Spend,
+  Transaction,
 }
-use aiken/transaction/credential.{VerificationKeyCredential}
-use aiken/transaction/value.{from_minted_value, quantity_of}
 
 fn order_wrapper(
   lambda: fn(b, pool.Action) -> Bool,
   datum: order.Datum<a>,
   redeemer: order.Redeemer<b>,
-  ctx: ScriptContext,
+  own_ref: OutputReference,
+  transaction: Transaction,
 ) {
-  let ScriptContext {
-    transaction: Transaction {
-      inputs,
-      redeemers,
-      extra_signatories,
-      withdrawals,
-      ..
-    },
-    purpose,
-  } = ctx
-  expect Spend(this_oref) = purpose
+  let Transaction { inputs, redeemers, extra_signatories, withdrawals, .. } =
+    transaction
+
   when redeemer is {
     order.Cancel ->
       utils.authorized_by_credential(
@@ -46,8 +40,11 @@ fn order_wrapper(
     order.Process { pool_oref, additional_data } -> {
       expect Some(Input { output: Output { value: pool_output_value, .. }, .. }) =
         list.find(inputs, fn(inp) -> Bool { inp.output_reference == pool_oref })
-      expect Some(raw_pool_redeemer): Option<Data> =
-        dict.get(redeemers, Spend(pool_oref))
+
+      expect [raw_pool_redeemer] = pair.get_all(redeemers, Spend(pool_oref))
+
+      expect raw_pool_redeemer: Option<Data> = raw_pool_redeemer
+
       expect Wrapped(pool.Redeemer { action, order, .. }): WrappedRedeemer<
         pool.Redeemer,
       > = raw_pool_redeemer
@@ -57,7 +54,7 @@ fn order_wrapper(
           datum.pool_nft_cs.policy_id,
           datum.pool_nft_cs.asset_name,
         ) == 1
-      let pool_tagged_this = order == Some(this_oref)
+      let pool_tagged_this = order == Some(own_ref)
       and {
         pool_nft_found?,
         pool_tagged_this?,
@@ -67,12 +64,13 @@ fn order_wrapper(
   }
 }
 
-validator {
-  fn deposit_order_contract(
+validator deposit_order_contract {
+  spend(
     datum: order.Datum<order.DepositRequest>,
     redeemer: order.Redeemer<Void>,
-    ctx: ScriptContext,
-  ) -> Bool {
+    own_order_ref: OutputReference,
+    transaction: Transaction,
+  ) {
     fn(_: Void, pool_action: pool.Action) -> Bool {
       when pool_action is {
         pool.Continuing(pool.LpAdjust { value_delta, .. }) -> {
@@ -88,17 +86,15 @@ validator {
           // All minted assets go to depositor since only one interaction with the pool on the TX
           let lp_assets_minted =
             quantity_of(
-              from_minted_value(ctx.transaction.mint),
+              transaction.mint,
               lp_asset.policy_id,
               lp_asset.asset_name,
             )
 
           let real_output = {
-            expect Spend(this_oref) = ctx.purpose
-
             let expected_datum =
               when order_datum is {
-                NoDatum -> InlineDatum(this_oref)
+                NoDatum -> InlineDatum(own_order_ref)
                 _ -> order_datum
               }
             Output {
@@ -115,7 +111,7 @@ validator {
           }
 
           let user_received_value =
-            ctx.transaction.outputs
+            transaction.outputs
               |> list.any(fn(out) { out == real_output })
           and {
             user_received_value?,
@@ -125,16 +121,21 @@ validator {
         _ -> False
       }
     }
-      |> order_wrapper(datum, redeemer, ctx)
+      |> order_wrapper(datum, redeemer, transaction)
+  }
+
+  else(_) {
+    fail
   }
 }
 
-validator {
-  fn withdraw_order_contract(
+validator withdraw_order_contract {
+  spend(
     datum: order.Datum<order.WithdrawRequest>,
     redeemer: order.Redeemer<Void>,
-    ctx: ScriptContext,
-  ) -> Bool {
+    own_ref: OutputReference,
+    transcation: Transaction,
+  ) {
     fn(_: Void, pool_action: pool.Action) -> Bool {
       when pool_action is {
         pool.Continuing(pool.LpAdjust { value_delta, .. }) -> {
@@ -147,16 +148,15 @@ validator {
 
           let burnt_asset =
             quantity_of(
-              from_minted_value(ctx.transaction.mint),
+              transaction.mint,
               lp_asset.policy_id,
               lp_asset.asset_name,
             ) == -lp_tokens_burn
 
           let real_output =
             when address.payment_credential is {
-              VerificationKeyCredential(_) -> {
-                expect Spend(this_oref) = ctx.purpose
-                let expected_datum: OutputReference = this_oref
+              VerificationKey(_) -> {
+                let expected_datum: OutputReference = own_ref
                 let expected_datum: Datum = InlineDatum(expected_datum)
 
                 Output {
@@ -185,7 +185,7 @@ validator {
                 }
             }
           let user_received_value =
-            ctx.transaction.outputs
+            transaction.outputs
               |> list.any(fn(out) { out == real_output })
           and {
             user_received_value?,
@@ -195,17 +195,21 @@ validator {
         _ -> False
       }
     }
-      |> order_wrapper(datum, redeemer, ctx)
+      |> order_wrapper(datum, redeemer, transaction)
+  }
+
+  else(_) {
+    fail
   }
 }
 
-validator {
-  fn borrow_order_contract(
+validator borrow_order_contract {
+  spend(
     datum: order.Datum<order.BorrowRequest>,
     redeemer: order.Redeemer<order.ProcessBorrow>,
-    ctx: ScriptContext,
-  ) -> Bool {
-    expect Spend(this_oref) = ctx.purpose
+    own_ref: OutputReference,
+    transaction: Transaction,
+  ) {
     fn(borrow_redeemer, pool_action: pool.Action) -> Bool {
       when pool_action is {
         pool.Continuing(pool.Borrow {
@@ -216,8 +220,8 @@ validator {
         }) -> {
           expect Some(this_input) =
             list.find(
-              ctx.transaction.inputs,
-              fn(inp) { inp.output_reference == this_oref },
+              transaction.inputs,
+              fn(inp) { inp.output_reference == own_ref },
             )
           let order.BorrowRequest {
             borrower_nft_policy,
@@ -236,14 +240,11 @@ validator {
             borrow_redeemer
           // Lender must receive the LPs
           let user_received_value =
-            list.any(
-              ctx.transaction.outputs,
-              fn(out) { out == expected_output },
-            )
+            list.any(transaction.outputs, fn(out) { out == expected_output })
           // because the nft policy only mints one at a time, we know this is unique.
           let borrower_token_minted =
             quantity_of(
-              from_minted_value(ctx.transaction.mint),
+              transaction.mint,
               borrower_nft_policy,
               borrower_token_name,
             ) == 1
@@ -266,13 +267,13 @@ validator {
             }
           let recipient_got_borrow_nft =
             list.any(
-              ctx.transaction.outputs,
+              transaction.outputs,
               fn(out) { out == expected_recipient_output },
             )
           let collateral_output_match =
             (
               list.filter(
-                ctx.transaction.outputs,
+                transaction.outputs,
                 fn(out) {
                   let Output { address: addr, datum: the_datum, .. } = out
                   when the_datum is {
@@ -280,8 +281,7 @@ validator {
                       if addr == collateral_address {
                         expect collateral_datum: collateral.CollateralDatum =
                           col_datum
-                        let tag_matches =
-                          collateral_datum.tag == Some(this_oref)
+                        let tag_matches = collateral_datum.tag == Some(own_ref)
                         let valid_loan_start_time =
                           collateral_datum.deposit_time >= min_deposit_time
                         let valid_loan_amount =
@@ -327,34 +327,36 @@ validator {
         _ -> False
       }
     }
-      |> order_wrapper(datum, redeemer, ctx)
+      |> order_wrapper(datum, redeemer, transaction)
+  }
+
+  else(_) {
+    fail
   }
 }
 
-validator {
-  fn repay_order_contract(
+validator repay_order_contract {
+  spend(
     datum: order.Datum<order.RepayRequest>,
     redeemer: order.Redeemer<Void>,
-    ctx: ScriptContext,
-  ) -> Bool {
+    own_ref: OutputReference,
+    transaction: Transaction,
+  ) {
     fn(_: Void, pool_action: pool.Action) -> Bool {
       when pool_action is {
         pool.Continuing(pool.CloseLoan { .. }) -> {
           let order.RepayRequest { expected_output, order, burn_asset } =
             datum.order
           let received_expected_output =
-            list.any(
-              ctx.transaction.outputs,
-              fn(out) { out == expected_output },
-            )
+            list.any(transaction.outputs, fn(out) { out == expected_output })
           let consumed_order =
             list.any(
-              ctx.transaction.inputs,
+              transaction.inputs,
               fn(input) { input.output_reference == order },
             )
           let burnt_enough =
             quantity_of(
-              from_minted_value(ctx.transaction.mint),
+              transaction.mint,
               burn_asset.policy_id,
               burn_asset.asset_name,
             ) == -1
@@ -367,13 +369,21 @@ validator {
         _ -> False
       }
     }
-      |> order_wrapper(datum, redeemer, ctx)
+      |> order_wrapper(datum, redeemer, transaction)
+  }
+
+  else(_) {
+    fail
   }
 }
 
 // this is unused, only used to access the type in blueprints
-validator {
-  fn outputRefType(_redeemer: OutputReference, _ctx: ScriptContext) -> Bool {
+validator output_ref_type {
+  spend(_redeemer: OutputReference, transaction: Transaction) {
     False
+  }
+
+  else(_) {
+    fail
   }
 }

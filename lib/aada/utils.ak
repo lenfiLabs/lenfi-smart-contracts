@@ -2,20 +2,20 @@
 
 use aada/types.{AssetClass}
 use aada/types/oracle.{Aggregated, OraclePriceFeed, OracleRedeemer, Pooled}
-use aiken/dict
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/list
+use aiken/collection/dict
+use aiken/collection/list
+use aiken/collection/pairs
+use aiken/crypto.{
+  Blake2b_224, DataHash, Hash, ScriptHash, VerificationKeyHash, blake2b_256,
+}
 use aiken/math/rational.{Rational, mul, reciprocal}
 use aiken/option
-use aiken/transaction.{
-  InlineDatum, Input, Output, Redeemer, ScriptPurpose, WithdrawFrom,
+use cardano/address.{
+  Address, Credential, Inline, Script, StakeCredential, VerificationKey,
 }
-use aiken/transaction/credential.{
-  Address, Credential, Inline, StakeCredential, VerificationKey,
-  VerificationKeyCredential,
-}
-use aiken/transaction/value.{
-  AssetName, MintedValue, PolicyId, from_minted_value, quantity_of,
+use cardano/assets.{AssetName, Lovelace, PolicyId, Value, quantity_of, tokens}
+use cardano/transaction.{
+  InlineDatum, Input, Output, Redeemer, ScriptPurpose, Withdraw,
 }
 
 /// These are aada/plutus specific utility functions. They mostly take ctx/inputs/other transaction data.
@@ -40,39 +40,33 @@ pub fn get_ref_token_datum(
     },
   )
     |> option.and_then(
-         fn(input) {
-           expect InlineDatum(datum) = input.output.datum
-           expect datum_typed: ReferenceTokenDatum = datum
-           Some(datum_typed)
-         },
-       )
+        fn(input) {
+          expect InlineDatum(datum) = input.output.datum
+          expect datum_typed: ReferenceTokenDatum = datum
+          Some(datum_typed)
+        },
+      )
 }
 
 /// Checks that an NFT, and only that NFT, was minted from policy.
 pub fn validate_mint_nft(
-  mints: MintedValue,
+  mints: Value,
   expected_minting_policy: ByteArray,
   expected_minting_name: ByteArray,
   expected_minting_amt: Int,
 ) -> Bool {
-  let mints_policy =
-    dict.to_list(
-      value.tokens(from_minted_value(mints), expected_minting_policy),
-    )
-  mints_policy == [(expected_minting_name, expected_minting_amt)]
+  let mints_policy = dict.to_pairs(tokens(mints, expected_minting_policy))
+  mints_policy == [Pair(expected_minting_name, expected_minting_amt)]
 }
 
 pub fn validate_mint_nft_few_per_policy(
-  mints: MintedValue,
+  mints: Value,
   expected_minting_policy: ByteArray,
   expected_minting_name: ByteArray,
   expected_minting_amt: Int,
 ) -> Bool {
-  let mints_policy =
-    dict.to_list(
-      value.tokens(from_minted_value(mints), expected_minting_policy),
-    )
-  list.has(mints_policy, (expected_minting_name, expected_minting_amt))
+  let mints_policy = dict.to_pairs(tokens(mints, expected_minting_policy))
+  list.has(mints_policy, Pair(expected_minting_name, expected_minting_amt))
 }
 
 /// Checks an output has a minimum quantity and is also at an address
@@ -121,15 +115,15 @@ pub fn get_input_by_nft(
 /// If verification key, check it is contained within extra_signatories
 /// If script, check it is in stake withdrawals (programmable by stake scripts)
 pub fn authorized_by_credential(
-  extra_signatories: List<Hash<Blake2b_224, VerificationKey>>,
-  withdrawals: dict.Dict<StakeCredential, Int>,
+  extra_signatories: List<VerificationKeyHash>,
+  withdrawals: Pairs<Credential, Lovelace>,
   payment_key: Credential,
 ) -> Bool {
   when payment_key is {
     // either credential is a spending key, or script using stake-withdraw-0
-    VerificationKeyCredential(payment_key_hash) ->
+    VerificationKey(payment_key_hash) ->
       list.has(extra_signatories, payment_key_hash)
-    script_credential -> dict.has_key(withdrawals, Inline(script_credential))
+    script_credential -> pairs.has_key(withdrawals, script_credential)
   }
 }
 
@@ -144,16 +138,16 @@ pub fn safe_div(left: Rational, right: Rational) -> Option<Rational> {
 pub fn retrieve_oracle_data(
   inputs: List<Input>,
   oracle_asset: AssetClass,
-  redeemers: dict.Dict<ScriptPurpose, Redeemer>,
+  redeemers: Pairs<ScriptPurpose, Redeemer>,
   transaction_valid_to: Int,
 ) -> Option<OraclePriceFeed> {
   let oracle_loan_input =
     get_input_by_nft(inputs, oracle_asset.policy_id, oracle_asset.asset_name)
 
-  expect Some(loan_oracle_redeemer) =
-    dict.get(
+  expect [loan_oracle_redeemer] =
+    pairs.get_all(
       redeemers,
-      WithdrawFrom(Inline(oracle_loan_input.output.address.payment_credential)),
+      Withdraw(oracle_loan_input.output.address.payment_credential),
     )
 
   expect loan_tokens_price: OracleRedeemer = loan_oracle_redeemer

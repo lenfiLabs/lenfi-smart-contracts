@@ -1,7 +1,7 @@
 use aada/types.{AssetClass, POSIXTime}
-use aiken/transaction.{Output, OutputReference}
-use aiken/transaction/credential.{Address, Credential}
-use aiken/transaction/value.{PolicyId, Value}
+use cardano/address.{Address, Credential}
+use cardano/assets.{PolicyId, Value}
+use cardano/transaction.{Output, OutputReference}
 
 pub type Redeemer<additional_data> {
   Cancel

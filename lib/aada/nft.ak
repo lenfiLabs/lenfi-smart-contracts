@@ -1,10 +1,9 @@
 use aada/utils
 use aiken/builtin
-use aiken/hash
-use aiken/list
-use aiken/transaction.{Input, OutputReference}
-use aiken/transaction/value.{MintedValue}
-
+use aiken/collection/list
+use aiken/crypto.{blake2b_256}
+use cardano/assets.{Value}
+use cardano/transaction.{Input, OutputReference}
 
 pub type NFTAction {
   // Consumed oref, Index of produced output
@@ -32,18 +31,17 @@ pub type BurnNFTElem {
 
 pub type CollateralNFTRedeemerLists {
   mints: List<MintNFTElem>,
-  burns: List<BurnNFTElem>,
+  burns: Pairs<BurnNFTElem>,
 }
 
 pub fn id_from_utxo(consumed_utxo: OutputReference) -> ByteArray {
-  hash.blake2b_256(builtin.serialise_data(consumed_utxo))
+  blake2b_256(builtin.serialise_data(consumed_utxo))
 }
-
 
 pub fn check_uniqueness(
   nft_action: NFTAction,
   inputs: List<Input>,
-  mint: MintedValue,
+  mint: Value,
   own_policy: ByteArray,
 ) -> Bool {
   when nft_action is {

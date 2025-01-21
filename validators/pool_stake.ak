@@ -5,19 +5,19 @@ use aada/types/pool
 use aada/types/pool_stake
 use aada/utils
 use aiken/cbor
-use aiken/dict
+use aiken/collection/dict
+use aiken/collection/list
 use aiken/interval.{Finite}
-use aiken/list
 use aiken/math/rational
-use aiken/transaction.{
+use cardano/address.{Inline, ScriptCredential}
+use cardano/assets.{PolicyId, quantity_of}
+use cardano/certificate.{
+  DelegateCredential, RegisterCredential, UnregisterCredential,
+}
+use cardano/transaction.{
   InlineDatum, OutputReference, Publish, ScriptContext, Spend, Transaction,
   WithdrawFrom,
 }
-use aiken/transaction/certificate.{
-  CredentialDelegation, CredentialDeregistration, CredentialRegistration,
-}
-use aiken/transaction/credential.{Inline, ScriptCredential}
-use aiken/transaction/value.{PolicyId, from_minted_value, quantity_of}
 
 fn pool_stake_publish(
   delegation_nft: AssetClass,
@@ -28,7 +28,9 @@ fn pool_stake_publish(
   let Transaction { inputs, .. } = transaction
   let pool_stake.PublishRedeemer(pool_owner_oref) = redeemer
   when certificate is {
-    CredentialRegistration { .. } | CredentialDelegation { .. } | CredentialDeregistration { .. } -> {
+    RegisterCredential { .. } |
+    DelegateCredential { .. } |
+    UnregisterCredential { .. } -> {
       expect Some(inp) =
         inputs |> list.find(fn(out) { out.output_reference == pool_owner_oref })
       let nft_check =
@@ -148,12 +150,12 @@ fn pool_stake_withdraw(
   }
 }
 
-validator(
+validator pool_stakev(
   pool_nft_policy: PolicyId,
   delegation_nft: AssetClass,
   utxo_to_consume: OutputReference,
 ) {
-  fn pool_stake(redeemer: pool_stake.StakeRedeemer, ctx: ScriptContext) {
+  withdraw(redeemer: pool_stake.StakeRedeemer, ctx: ScriptContext) {
     let ScriptContext { transaction, purpose } = ctx
     when redeemer is {
       pool_stake.Publish(publish_redeemer) -> {
@@ -176,12 +178,11 @@ validator(
       }
       pool_stake.CreatePool(consumed_utxo) -> {
         expect Publish(certificate) = purpose
-        // expect CredentialRegistration { delegator } = certificate
         expect CredentialDelegation(delegator, _pool) = certificate
         expect Inline(own_script) = delegator
         expect ScriptCredential(own_hash) = own_script
 
-        let mint_value = from_minted_value(transaction.mint)
+        let mint_value = transaction.mint
         let valid_nft_check =
           quantity_of(mint_value, pool_nft_policy, own_hash) == 1
         let consumed_utxo_check =
@@ -197,5 +198,9 @@ validator(
         }
       }
     }
+  }
+
+  else(_) {
+    fail
   }
 }

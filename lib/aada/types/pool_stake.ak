@@ -1,6 +1,6 @@
 use aada/types.{AssetClass}
-use aiken/transaction.{OutputReference}
-use aiken/transaction/value.{AssetName}
+use cardano/assets.{AssetName}
+use cardano/transaction.{OutputReference}
 
 // suggestion: wrap every int in a newtype
 // this way name can be less descriptive, and you

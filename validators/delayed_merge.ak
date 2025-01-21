@@ -2,41 +2,46 @@ use aada/types.{Wrapped, WrappedRedeemer}
 use aada/types/collateral.{MergeDatum}
 use aada/types/pool
 use aada/utils
-use aiken/dict
-use aiken/list
-use aiken/transaction.{
-  InlineDatum, Input, Output, ScriptContext, Spend, Transaction, WithdrawFrom,
+use aiken/collection/dict
+use aiken/collection/list
+use aiken/collection/pairs
+use cardano/address.{Credential, Inline, Script}
+use cardano/script_context.{ScriptInfo, Withdrawing}
+use cardano/transaction.{
+  InlineDatum, Input, Output, OutputReference, Spend, Transaction,
 }
-use aiken/transaction/credential.{Inline}
 
-validator(pool_script_hash: ByteArray) {
-  fn spend(_datum: MergeDatum, _r, ctx: ScriptContext) {
-    expect ScriptContext {
-      transaction: Transaction { inputs, withdrawals, .. },
-      purpose: Spend(own_oref),
-    } = ctx
+validator delayed_mergev(pool_script_hash: ByteArray) {
+  spend(
+    _datum: Option<MergeDatum>,
+    _r,
+    own_ref: OutputReference,
+    transaction: Transaction,
+  ) {
+    let Transaction { inputs, withdrawals, .. } = transaction
+
     expect Some(own_input) =
-      list.find(inputs, fn(input) { input.output_reference == own_oref })
+      list.find(inputs, fn(input) { input.output_reference == own_ref })
 
-    let withdraw_cred = Inline(own_input.output.address.payment_credential)
+    let withdraw_cred = own_input.output.address.payment_credential
 
     // Can spend ALL THE merge inputs if ALL THE withdrawals are valid
-    dict.has_key(withdrawals, withdraw_cred)
+    pairs.has_key(withdrawals, withdraw_cred)
   }
 
-  fn withdraw_validate(
+  withdraw(
     pool_nft_name_redeemer: ByteArray,
-    ctx: ScriptContext,
-  ) -> Bool {
-    expect ScriptContext {
-      transaction: Transaction { inputs, redeemers, .. },
-      purpose: WithdrawFrom(Inline(own_credential)),
-    } = ctx
+    transaction: Transaction,
+    info: ScriptInfo,
+  ) {
+    let Transaction { inputs, redeemers, .. } = transaction
+    expect Withdrawing(own_credential) = info
+
     let pool_input =
       utils.get_input_by_nft(inputs, pool_script_hash, pool_nft_name_redeemer)
     let pool_oref = pool_input.output_reference
-    expect Some(raw_pool_redeemer): Option<Data> =
-      redeemers |> dict.get(Spend(pool_oref))
+    expect [raw_pool_redeemer] = redeemers |> pair.get_all(Spend(pool_oref))
+    expect raw_pool_redeemer: Optioon<Data> = raw_pool_redeemer
 
     expect Wrapped(pool_redeemer): WrappedRedeemer<pool.Redeemer> =
       raw_pool_redeemer
@@ -105,5 +110,9 @@ validator(pool_script_hash: ByteArray) {
         }
       _ -> False
     }
+  }
+
+  else(_) {
+    fail
   }
 }

@@ -1,7 +1,7 @@
 use aada/types.{AssetClass}
-use aiken/transaction.{OutputReference}
-use aiken/transaction/credential.{Address}
-use aiken/transaction/value.{AssetName}
+use cardano/address.{Address}
+use cardano/assets.{AssetName}
+use cardano/transaction.{OutputReference}
 
 pub type OutputIndex =
   Int

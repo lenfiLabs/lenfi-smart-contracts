@@ -2,39 +2,39 @@ use aada/nft.{NFTRedeemerElement, check_uniqueness}
 use aada/nft_pointers
 use aada/types.{AssetClass}
 use aada/types/pool
-use aiken/dict
-use aiken/list
-use aiken/transaction.{
+use aiken/collection/dict
+use aiken/collection/list
+use cardano/address.{ScriptCredential}
+use cardano/assets.{PolicyId, quantity_of, tokens}
+use cardano/transaction.{
   InlineDatum, Input, Mint, Output, ScriptContext, Spend, Transaction,
 }
-use aiken/transaction/credential.{ScriptCredential}
-use aiken/transaction/value.{PolicyId, quantity_of, tokens}
 
 type ConfigRedeemer {
   pool_config_output_index: pool.OutputIndex,
   fee_collector_output_index: pool.OutputIndex,
 }
 
-validator(gov_nft: AssetClass) {
-  fn spend(datum: pool.Config, redeemer: ConfigRedeemer, ctx: ScriptContext) {
+validator pool_configv(gov_nft: AssetClass) {
+  spend(
+    datum: pool.Config,
+    redeemer: ConfigRedeemer,
+    own_ref: OutputReference,
+    transaction: Transaction,
+  ) {
     let AssetClass { policy_id, asset_name } = gov_nft
-    let ScriptContext {
-      transaction: Transaction {
-        reference_inputs,
-        withdrawals,
-        extra_signatories,
-        inputs,
-        outputs,
-        ..
-      },
-      purpose,
-    } = ctx
-    expect Spend(output_ref) = purpose
+    let Transaction {
+      reference_inputs,
+      withdrawals,
+      extra_signatories,
+      inputs,
+      outputs,
+      ..
+    } = transaction
     expect Some(Input {
       output: Output { address: this_address, value: config_input_value, .. },
       ..
-    }) =
-      list.find(inputs, fn(inp) -> Bool { inp.output_reference == output_ref })
+    }) = list.find(inputs, fn(inp) -> Bool { inp.output_reference == own_ref })
     expect ScriptCredential(this_script_hash) = this_address.payment_credential
     let config_nft_policy: PolicyId = this_script_hash
 
@@ -128,7 +128,7 @@ validator(gov_nft: AssetClass) {
     }
   }
 
-  fn mint(r: NFTRedeemerElement<Void>, ctx: ScriptContext) -> Bool {
+  mint(r: NFTRedeemerElement<Void>, ctx: ScriptContext) {
     let ScriptContext { transaction, purpose } = ctx
     when purpose is {
       Mint(this_policy) -> {
@@ -139,5 +139,9 @@ validator(gov_nft: AssetClass) {
       }
       _ -> False
     }
+  }
+
+  else(_) {
+    fail
   }
 }
